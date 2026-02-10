@@ -1,0 +1,56 @@
+# =============================
+# Secrets & Environment files
+# =============================
+.env
+.env.*
+*.env
+
+# =============================
+# Python (backend)
+# =============================
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# =============================
+# Node / JS
+# =============================
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# =============================
+# Docker / Logs
+# =============================
+*.log
+
+# =============================
+# OS / IDE
+# =============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =============================
+# Keys / Credentials
+# =============================
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+credentials*.json
+secrets*.json
+serviceAccount*.json
+
+# =============================
+# Kubernetes secrets
+# (manifests OK, secrets NO)
+# =============================
+*k8s*/*secret*.yaml
+*k8s*/*secrets*.yaml
