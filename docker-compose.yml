@@ -2,44 +2,71 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: anomify-zookeeper
+    restart: always
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: anomify-kafka
+    restart: always
     ports:
       - "9092:9092"
     depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: anomify-zookeeper:2181
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181   # ✅ FIXED
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  db:
+    image: timescale/timescaledb:latest-pg14
+    container_name: anomify-db
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: anomify
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
   api:
+    environment:
+        - MODE=prod
     build: ./backend
     container_name: anomify-api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
     depends_on:
       - kafka
+      - db   # ✅ IMPORTANT
+
+  producer:
+    build: ./producer
+    container_name: anomify-producer
+    restart: always
+    depends_on:
+      - kafka
 
   grafana:
     image: grafana/grafana:latest
     container_name: anomify-grafana
+    restart: always
     ports:
-      - "3001:3000"   # use 3001 if 3000 is already taken by your old 'grafana' container
+      - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
 
 volumes:
   grafana_data:
+  db_data:
