@@ -38,7 +38,9 @@ services:
 
   api:
     environment:
+    
         - MODE=prod
+
     build: ./backend
     container_name: anomify-api
     restart: always
