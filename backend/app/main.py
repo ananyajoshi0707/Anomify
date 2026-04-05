@@ -3,9 +3,11 @@ import threading
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-from app.routes.anomaly_routes import router as anomaly_router
-from app.database.connection import engine
-from app.database import models
+from backend.app.routes.anomaly_routes import router as anomaly_router
+from backend.app.database.connection import engine
+from backend.app.routes.anomaly_routes import router
+from backend.app.database import models
+
 
 # ✅ Create tables
 print("📦 Creating database tables...")
