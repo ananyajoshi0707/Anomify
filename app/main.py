@@ -57,3 +57,13 @@ app = FastAPI(
 
 # ✅ Routes
 app.include_router(anomaly_router, prefix="/anomaly")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(router)

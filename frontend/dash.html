@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anomify — Anomaly Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0c1021;
+    --surface2: #111827;
+    --border: #1e2d4a;
+    --border-glow: #1e4a6e;
+    --accent: #00d4ff;
+    --accent2: #ff3b6b;
+    --accent3: #7c3aed;
+    --warn: #f59e0b;
+    --ok: #10b981;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --dim: #334155;
+    --font-mono: 'Space Mono', monospace;
+    --font-sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+
+  /* ─── GRID BACKGROUND ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    top: -200px; left: -200px;
+    background: radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+    animation: drift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes drift {
+    from { transform: translate(0,0); }
+    to { transform: translate(300px, 200px); }
+  }
+
+  /* ─── LAYOUT ─── */
+  .shell {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 240px 1fr;
+    grid-template-areas:
+      "nav   topbar"
+      "nav   main";
+  }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    grid-area: topbar;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,8,16,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .status-pill.live { border-color: rgba(16,185,129,0.4); color: var(--ok); }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status-pill.live .status-dot {
+    background: var(--ok);
+    box-shadow: 0 0 6px var(--ok);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    border: 1px solid transparent;
+    text-decoration: none;
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .btn-primary:hover {
+    background: #33dcff;
+    box-shadow: 0 0 20px rgba(0,212,255,0.4);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-danger {
+    background: transparent;
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .btn-danger:hover { background: rgba(255,59,107,0.1); }
+
+  .btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ─── SIDEBAR NAV ─── */
+  .nav {
+    grid-area: nav;
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0;
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    height: 56px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 28px; height: 28px; }
+
+  .logo-text {
+    font-family: var(--font-sans);
+    font-size: 18px; font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo-text span { color: var(--accent); }
+
+  .nav-section { padding: 20px 12px 8px; }
+  .nav-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 0 8px 8px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px;
+    border-radius: 6px;
+    font-size: 13px; font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); border-color: var(--border); }
+  .nav-item.active {
+    background: rgba(0,212,255,0.06);
+    color: var(--accent);
+    border-color: rgba(0,212,255,0.2);
+  }
+  .nav-item.active svg { opacity: 1; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent2);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: 400;
+  }
+
+  .nav-footer {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .version-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    text-align: center;
+  }
+
+  /* ─── MAIN ─── */
+  .main {
+    grid-area: main;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  /* ─── PAGE HEADER ─── */
+  .page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .page-title {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+  }
+  .page-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ─── STAT CARDS ─── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .stat-card:hover { border-color: var(--border-glow); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--accent));
+    opacity: 0.6;
+  }
+  .stat-card.red { --card-accent: var(--accent2); }
+  .stat-card.purple { --card-accent: var(--accent3); }
+  .stat-card.yellow { --card-accent: var(--warn); }
+
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px; font-weight: 800; letter-spacing: -1px;
+    line-height: 1;
+  }
+  .stat-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .stat-trend { color: var(--ok); }
+  .stat-trend.down { color: var(--accent2); }
+
+  /* ─── TWO-COL ─── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ─── PANEL ─── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .panel-title-dot.red { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .panel-body { padding: 18px; }
+
+  /* ─── STREAM CHART ─── */
+  .chart-wrap {
+    position: relative;
+    height: 180px;
+  }
+
+  canvas.stream-canvas {
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  .chart-legend {
+    display: flex; gap: 16px;
+    padding: 0 18px 14px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px; color: var(--muted);
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ─── GRAFANA EMBED ─── */
+  .grafana-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .grafana-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .grafana-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700;
+  }
+  .grafana-logo {
+    width: 16px; height: 16px;
+    background: linear-gradient(135deg, #F46800, #FF8C00);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 900; color: #fff;
+  }
+  .grafana-iframe-wrap {
+    position: relative;
+    width: 100%;
+    height: 340px;
+  }
+  .grafana-iframe-wrap iframe {
+    width: 100%; height: 100%;
+    border: none;
+    filter: brightness(0.95) saturate(1.1);
+  }
+  .grafana-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    background: var(--surface2);
+  }
+  .grafana-overlay-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, rgba(244,104,0,0.15), rgba(255,140,0,0.05));
+    border: 1px solid rgba(244,104,0,0.3);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .grafana-overlay p {
+    font-size: 13px; color: var(--muted); text-align: center;
+    font-family: var(--font-mono);
+  }
+  .grafana-overlay small {
+    font-size: 11px; color: var(--dim);
+    font-family: var(--font-mono);
+  }
+  .grafana-url-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .grafana-url-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .grafana-url-input:focus { border-color: var(--accent); color: var(--text); }
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 11px;
+    border-radius: 5px;
+  }
+
+  /* ─── DATA SOURCES ─── */
+  .sources-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .source-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color .2s, transform .2s;
+    animation: slideIn .3s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .source-card:hover { border-color: var(--border-glow); transform: translateX(2px); }
+
+  .source-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .source-info { flex: 1; min-width: 0; }
+  .source-name { font-size: 13px; font-weight: 700; }
+  .source-meta { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .source-status {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .source-status.running {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.25);
+    color: var(--ok);
+  }
+  .source-status.anomaly {
+    background: rgba(255,59,107,0.08);
+    border: 1px solid rgba(255,59,107,0.3);
+    color: var(--accent2);
+  }
+  .source-status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: blink 1.2s infinite;
+  }
+
+  .source-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .icon-btn svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ─── ANOMALY LOG ─── */
+  .anomaly-log { display: flex; flex-direction: column; gap: 0; max-height: 280px; overflow-y: auto; }
+  .anomaly-log::-webkit-scrollbar { width: 4px; }
+  .anomaly-log::-webkit-scrollbar-track { background: transparent; }
+  .anomaly-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .4s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .log-entry:last-child { border-bottom: none; }
+
+  .log-severity {
+    flex-shrink: 0;
+    width: 50px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-align: center;
+    margin-top: 1px;
+  }
+  .log-severity.critical { background: rgba(255,59,107,0.15); color: var(--accent2); }
+  .log-severity.warn { background: rgba(245,158,11,0.12); color: var(--warn); }
+  .log-severity.info { background: rgba(0,212,255,0.08); color: var(--accent); }
+
+  .log-content { flex: 1; min-width: 0; }
+  .log-msg { font-size: 12px; color: var(--text); }
+  .log-time { font-family: var(--font-mono); font-size: 10px; color: var(--dim); margin-top: 2px; }
+  .log-source { color: var(--muted); font-size: 10px; font-family: var(--font-mono); }
+
+  /* ─── ADD SOURCE MODAL ─── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(5,8,16,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-glow);
+    border-radius: 14px;
+    width: 460px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.05);
+    transform: scale(0.95) translateY(10px);
+    transition: transform .25s;
+    overflow: hidden;
+  }
+  .modal-backdrop.open .modal { transform: scale(1) translateY(0); }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-size: 16px; font-weight: 800; }
+  .modal-close {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: all .15s;
+  }
+  .modal-close:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .modal-body { padding: 22px; }
+
+  .source-types {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 20px;
+  }
+  .source-type-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .2s;
+  }
+  .source-type-btn:hover { border-color: var(--accent); }
+  .source-type-btn.selected { border-color: var(--accent); background: rgba(0,212,255,0.05); }
+  .source-type-icon { font-size: 22px; margin-bottom: 6px; }
+  .source-type-name { font-size: 12px; font-weight: 700; }
+  .source-type-desc { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 700; margin-bottom: 6px; display: block; color: var(--muted); }
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--dim); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .slider-group { margin-bottom: 16px; }
+  .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .slider-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .slider-val { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none;
+    height: 4px; background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+  }
+
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── LOADING SPINNER ─── */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── TOAST ─── */
+  .toast-wrap {
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 200;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    font-size: 13px;
+    animation: toastIn .3s ease;
+    max-width: 300px;
+    font-family: var(--font-mono);
+  }
+  @keyframes toastIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+  .toast.success { border-color: rgba(16,185,129,0.3); }
+  .toast.error { border-color: rgba(255,59,107,0.3); }
+  .toast-icon { font-size: 16px; }
+
+  /* ─── ANOMALY PULSE BADGE ─── */
+  .anomaly-pulse {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px;
+    background: rgba(255,59,107,0.1);
+    border: 1px solid rgba(255,59,107,0.3);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent2);
+  }
+
+  /* ─── SCROLLBAR ─── */
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+    .nav { display: none; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="14" cy="14" r="13" stroke="#00d4ff" stroke-width="1.5" opacity="0.3"/>
+          <path d="M4 14 Q7 8 10 14 Q13 20 16 10 Q19 0 22 14" stroke="#00d4ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          <circle cx="16" cy="10" r="3" fill="#ff3b6b" opacity="0.9"/>
+        </svg>
+      </div>
+      <span class="logo-text">ano<span>mify</span></span>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Monitor</div>
+      <div class="nav-item active" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        Overview
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Stream
+        <span class="nav-badge" id="anomaly-count">0</span>
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Analytics
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Config</div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        Data Sources
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Grafana
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Alert Rules
+      </div>
+    </div>
+
+    <div class="nav-footer">
+      <div class="version-tag">ANOMIFY v1.0.0 · BETA</div>
+    </div>
+  </nav>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="status-pill live" id="global-status">
+        <span class="status-dot"></span>
+        <span id="status-text">STREAMING</span>
+      </div>
+      <div class="status-pill" id="engine-status">
+        <span class="status-dot" style="background:var(--accent3)"></span>
+        Detection Engine Active
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-ghost btn-sm">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alerts
+      </button>
+      <button class="btn btn-primary" onclick="openModal()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Data Source
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <div class="page-title">Anomaly Detection Dashboard</div>
+        <div class="page-sub" id="last-update">LAST UPDATE: —</div>
+      </div>
+      <div class="anomaly-pulse" id="top-anomaly-badge" style="display:none">
+        <span>●</span> <span id="top-anomaly-text">Anomaly Detected</span>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">DATA SOURCES</div>
+        <div class="stat-value" id="stat-sources">0</div>
+        <div class="stat-sub" id="stat-sources-sub">No sources active</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">ANOMALIES / HR</div>
+        <div class="stat-value" id="stat-anomalies">0</div>
+        <div class="stat-sub stat-trend down" id="stat-anomaly-sub">—</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">DATA POINTS / SEC</div>
+        <div class="stat-value" id="stat-dps">0</div>
+        <div class="stat-sub" id="stat-dps-sub">—</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-label">DETECTION ACCURACY</div>
+        <div class="stat-value">98.4<span style="font-size:14px">%</span></div>
+        <div class="stat-sub stat-trend">↑ 0.2% this week</div>
+      </div>
+    </div>
+
+    <!-- MAIN STREAM CHART + SOURCES -->
+    <div class="two-col">
+      <div>
+        <!-- STREAM CHART -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-title-dot"></span>
+              Live Metric Stream
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">WINDOW: 60s</span>
+              <button class="btn btn-ghost btn-sm" onclick="clearChart()">CLEAR</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="padding:16px 18px 0">
+            <canvas id="streamChart"></canvas>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span>Metric Value</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--accent2)"></span>Anomaly</div>
+            <div class="legend-item"><span class="legend-dot" style="background:rgba(245,158,11,0.6);"></span>Threshold</div>
+          </div>
+        </div>
+
+        <!-- GRAFANA -->
+        <div class="grafana-wrap" style="margin-top:20px">
+          <div class="grafana-header">
+            <div class="grafana-title">
+              <div class="grafana-logo">G</div>
+              Grafana Dashboard
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" onclick="refreshGrafana()">↻ Refresh</button>
+              <a id="grafana-open-link" href="#" target="_blank" class="btn btn-ghost btn-sm">Open ↗</a>
+            </div>
+          </div>
+          <div class="grafana-url-bar">
+            <input class="grafana-url-input" type="text" id="grafana-url" placeholder="https://your-grafana.grafana.net/d/xxxxx/dashboard?orgId=1&refresh=5s&kiosk" />
+            <button class="btn btn-primary btn-sm" onclick="loadGrafana()">Load</button>
+          </div>
+          <div class="grafana-iframe-wrap">
+            <div class="grafana-overlay" id="grafana-overlay">
+              <div class="grafana-overlay-icon">📊</div>
+              <p>Enter your Grafana dashboard URL above</p>
+              <small>Supports Grafana Cloud · Self-hosted · Kiosk mode</small>
+            </div>
+            <iframe id="grafana-frame" src="" style="display:none"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <!-- DATA SOURCES -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-title-dot"></span>
+              Active Data Sources
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="openModal()">+ Add</button>
+          </div>
+          <div class="panel-body">
+            <div class="sources-list" id="sources-list">
+              <div style="text-align:center;padding:24px 0;color:var(--dim);font-family:var(--font-mono);font-size:11px">
+                No data sources connected.<br>Click "Add Data Source" to begin.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANOMALY LOG -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="panel-title-dot red"></span>
+              Anomaly Log
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearLog()">CLEAR</button>
+          </div>
+          <div class="panel-body" style="padding:14px 18px">
+            <div class="anomaly-log" id="anomaly-log">
+              <div style="text-align:center;padding:20px 0;color:var(--dim);font-family:var(--font-mono);font-size:10px">
+                No anomalies detected yet.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ADD DATA SOURCE MODAL -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Connect Data Source</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Simple helper text -->
+      <p style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.7;">
+        Paste your deployed backend URL (e.g. Render) and give it a name.<br>That's it — Anomify handles the rest.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">BACKEND URL</label>
+        <input class="form-input" id="source-url" type="url"
+          placeholder="https://your-app.onrender.com"
+          style="font-size:13px;" />
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--dim);margin-top:6px;">
+          Your Render / Railway / Fly.io deployed backend link
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label">SOURCE NAME <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <input class="form-input" id="source-name" type="text"
+          placeholder="e.g. Sensor Stream 1" />
+      </div>
+
+      <!-- Connection status indicator (hidden until connecting) -->
+      <div id="connect-status" style="display:none;align-items:center;gap:10px;
+        padding:10px 14px;border-radius:8px;
+        background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
+        font-family:var(--font-mono);font-size:11px;color:var(--accent);margin-top:4px;">
+        <span id="connect-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1s infinite;flex-shrink:0;display:inline-block;"></span>
+        <span id="connect-status-text">Reaching backend…</span>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="connect-btn" onclick="connectSource()">
+        <span class="spinner" id="connect-spinner"></span>
+        <span id="connect-btn-text">Connect & Start</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ─── STATE ───
+const sources = [];
+const logEntries = [];
+let anomalyCount = 0;
+let totalDPS = 0;
+// source types not needed — URL-based connection only
+// polling managed per-source in sourceTimers
+
+// ─── CHART SETUP ───
+const canvas = document.getElementById('streamChart');
+const ctx = canvas.getContext('2d');
+const POINTS = 80;
+let chartData = Array(POINTS).fill(null).map(() => ({ val: 50 + Math.random() * 10, anomaly: false }));
+
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function drawChart() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 36, padR = 12, padT = 12, padB = 24;
+  const cW = W - padL - padR, cH = H - padT - padB;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,45,74,0.8)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (i / 4) * cH;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+  }
+
+  // Values
+  const vals = chartData.map(d => d.val);
+  const mn = Math.min(...vals) - 5, mx = Math.max(...vals) + 5;
+  const scaleY = v => padT + cH - ((v - mn) / (mx - mn)) * cH;
+  const scaleX = i => padL + (i / (POINTS - 1)) * cW;
+
+  // Y labels
+  ctx.fillStyle = '#475569';
+  ctx.font = '9px Space Mono, monospace';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = mn + ((4 - i) / 4) * (mx - mn);
+    ctx.fillText(v.toFixed(0), padL - 4, padT + (i / 4) * cH + 3);
+  }
+
+  // Threshold line
+  const thresh = mn + 0.75 * (mx - mn);
+  const ty = scaleY(thresh);
+  ctx.strokeStyle = 'rgba(245,158,11,0.35)';
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(W - padR, ty); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, padT, 0, H - padB);
+  grad.addColorStop(0, 'rgba(0,212,255,0.18)');
+  grad.addColorStop(1, 'rgba(0,212,255,0)');
+  ctx.beginPath();
+  ctx.moveTo(scaleX(0), scaleY(chartData[0].val));
+  for (let i = 1; i < POINTS; i++) ctx.lineTo(scaleX(i), scaleY(chartData[i].val));
+  ctx.lineTo(scaleX(POINTS - 1), H - padB);
+  ctx.lineTo(scaleX(0), H - padB);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Main line
+  ctx.beginPath();
+  ctx.strokeStyle = '#00d4ff';
+  ctx.lineWidth = 1.8;
+  ctx.lineJoin = 'round';
+  ctx.moveTo(scaleX(0), scaleY(chartData[0].val));
+  for (let i = 1; i < POINTS; i++) ctx.lineTo(scaleX(i), scaleY(chartData[i].val));
+  ctx.stroke();
+
+  // Anomaly dots
+  for (let i = 0; i < POINTS; i++) {
+    if (chartData[i].anomaly) {
+      const x = scaleX(i), y = scaleY(chartData[i].val);
+      ctx.beginPath();
+      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff3b6b';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,59,107,0.3)';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
+  // Live dot
+  const last = chartData[POINTS - 1];
+  const lx = scaleX(POINTS - 1), ly = scaleY(last.val);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00d4ff';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+}
+
+drawChart();
+
+// startStream / stopStream replaced by per-source polling via sendToBackend()
+
+function handleAnomaly(val) {
+  anomalyCount++;
+  document.getElementById('anomaly-count').textContent = anomalyCount;
+
+  const badge = document.getElementById('top-anomaly-badge');
+  badge.style.display = 'inline-flex';
+  document.getElementById('top-anomaly-text').textContent =
+    `Anomaly #${anomalyCount} — z-score ${(2.5 + Math.random() * 2).toFixed(2)}`;
+
+  setTimeout(() => { badge.style.display = 'none'; }, 4000);
+
+  addLogEntry(val);
+
+  // Update source anomaly status
+  if (sources.length > 0) {
+    const src = sources[Math.floor(Math.random() * sources.length)];
+    src.anomalies = (src.anomalies || 0) + 1;
+    if (src.anomalies % 2 === 1) {
+      const el = document.getElementById(`src-status-${src.id}`);
+      if (el) {
+        el.className = 'source-status anomaly';
+        el.innerHTML = `<span class="source-status-dot"></span> ANOMALY`;
+        setTimeout(() => {
+          el.className = 'source-status running';
+          el.innerHTML = `<span class="source-status-dot"></span> RUNNING`;
+        }, 3000);
+      }
+    }
+  }
+}
+
+function addLogEntry(val) {
+  const severities = ['critical', 'warn', 'info'];
+  const messages = [
+    [`Spike detected`, `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
+    [`Point anomaly`, `Z-score ${(2.5+Math.random()*2).toFixed(2)} — deviation from rolling mean`],
+    [`Contextual anomaly`, `Pattern break in time window (30s)`],
+    [`Collective anomaly`, `Cluster of outliers in stream buffer`],
+    [`Sudden drop`, `Value ${val.toFixed(2)} below lower bound`],
+  ];
+  const sev = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
+  const msg = messages[Math.floor(Math.random() * messages.length)];
+  const src = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
+
+  const log = document.getElementById('anomaly-log');
+  const empty = log.querySelector('div');
+  if (empty && empty.style.paddingTop) log.innerHTML = '';
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-severity ${sev}">${sev.toUpperCase()}</div>
+    <div class="log-content">
+      <div class="log-msg">${msg[0]} — <span style="color:var(--muted);font-size:11px">${msg[1]}</span></div>
+      <div class="log-time">${new Date().toLocaleTimeString()} · <span class="log-source">${src}</span></div>
+    </div>`;
+  log.prepend(entry);
+
+  // Keep max 30
+  while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+function clearLog() {
+  document.getElementById('anomaly-log').innerHTML =
+    '<div style="text-align:center;padding:20px 0;color:var(--dim);font-family:var(--font-mono);font-size:10px">No anomalies detected yet.</div>';
+}
+
+function clearChart() {
+  chartData = Array(POINTS).fill(null).map(() => ({ val: 50 + Math.random() * 10, anomaly: false }));
+  drawChart();
+}
+
+function updateLastUpdate() {
+  document.getElementById('last-update').textContent =
+    `LAST UPDATE: ${new Date().toLocaleTimeString()}`;
+}
+
+function updateStats() {
+  document.getElementById('stat-dps').textContent = sources.length * 2 + Math.floor(Math.random() * 5);
+  document.getElementById('stat-dps-sub').textContent = `${sources.length} source${sources.length !== 1 ? 's' : ''} streaming`;
+  document.getElementById('stat-anomalies').textContent = anomalyCount;
+  document.getElementById('stat-anomaly-sub').textContent =
+    anomalyCount > 0 ? `↑ ${anomalyCount} detected` : 'None detected';
+}
+
+// ─── SOURCES ───
+function renderSources() {
+  const list = document.getElementById('sources-list');
+  if (sources.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--dim);font-family:var(--font-mono);font-size:11px">No data sources connected.<br>Click "Add Data Source" to begin.</div>';
+    document.getElementById('stat-sources').textContent = '0';
+    document.getElementById('stat-sources-sub').textContent = 'No sources active';
+    return;
+  }
+
+  list.innerHTML = '';
+  sources.forEach(src => {
+    const el = document.createElement('div');
+    el.className = 'source-card';
+    el.id = `source-${src.id}`;
+    el.innerHTML = `
+      <div class="source-icon" style="background:${src.bg}">${src.icon}</div>
+      <div class="source-info">
+        <div class="source-name">${src.name}</div>
+        <div class="source-meta">${src.type} · ${src.endpoint || 'render.backend'} · ${src.interval}ms</div>
+      </div>
+      <div class="source-status running" id="src-status-${src.id}">
+        <span class="source-status-dot"></span> RUNNING
+      </div>
+      <div class="source-actions">
+        <button class="icon-btn" title="Remove" onclick="removeSource('${src.id}')">
+          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>`;
+    list.appendChild(el);
+  });
+
+  document.getElementById('stat-sources').textContent = sources.length;
+  document.getElementById('stat-sources-sub').textContent = `${sources.length} active stream${sources.length !== 1 ? 's' : ''}`;
+}
+
+function removeSource(id) {
+  stopSourcePolling(id);
+  const idx = sources.findIndex(s => s.id === id);
+  if (idx !== -1) sources.splice(idx, 1);
+  renderSources();
+  updateStats();
+  toast('Source removed', 'info');
+}
+
+// ─── BACKEND CONFIG ───
+// backend URL is set per-source at connect time
+
+// Per-source polling timers: { sourceId -> intervalId }
+const sourceTimers = {};
+
+// Send one data point to POST /
+async function sendToBackend(src) {
+  const noise = (Math.random() - 0.5) * 8;
+  const spike = Math.random() < 0.04;
+  const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
+
+  try {
+    const res = await fetch(`${src.url}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: src.id, value })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Feed value into chart
+    const isAnomaly = spike;
+    chartData.push({ val: value, anomaly: isAnomaly });
+    if (chartData.length > POINTS) chartData.shift();
+    drawChart();
+    updateLastUpdate();
+    if (isAnomaly) handleAnomaly(value);
+    updateStats();
+
+    // Clear any error state
+    const statusEl = document.getElementById(`src-status-${src.id}`);
+    if (statusEl && statusEl.dataset.error) {
+      statusEl.className = 'source-status running';
+      statusEl.innerHTML = `<span class="source-status-dot"></span> RUNNING`;
+      delete statusEl.dataset.error;
+    }
+
+  } catch (err) {
+    console.warn(`[${src.name}] POST failed:`, err.message);
+    const statusEl = document.getElementById(`src-status-${src.id}`);
+    if (statusEl) {
+      statusEl.className = 'source-status anomaly';
+      statusEl.innerHTML = `<span class="source-status-dot"></span> ERROR`;
+      statusEl.dataset.error = '1';
+    }
+  }
+}
+
+function startSourcePolling(src) {
+  // Fire once immediately, then on interval
+  sendToBackend(src);
+  sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
+}
+
+function stopSourcePolling(id) {
+  if (sourceTimers[id]) {
+    clearInterval(sourceTimers[id]);
+    delete sourceTimers[id];
+  }
+}
+
+// ─── MODAL ───
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  resetConnectBtn();
+}
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+async function connectSource() {
+  let url = document.getElementById('source-url').value.trim();
+  const name = document.getElementById('source-name').value.trim();
+
+  if (!url) { toast('Please paste your backend URL', 'error'); return; }
+  // Normalise — strip trailing slash
+  url = url.replace(/\/$/, '');
+
+  const btn = document.getElementById('connect-btn');
+  const spinner = document.getElementById('connect-spinner');
+  const btnText = document.getElementById('connect-btn-text');
+  const statusBox = document.getElementById('connect-status');
+  const statusText = document.getElementById('connect-status-text');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Connecting…';
+  statusBox.style.display = 'flex';
+  statusText.textContent = 'Reaching backend…';
+
+  // Probe the backend with a real POST
+  try {
+    const probe = await fetch(`${url}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: 'probe-' + Date.now(), value: 0 })
+    });
+    // 200 or 422 (validation error) both mean the server is alive
+    if (!probe.ok && probe.status !== 422) throw new Error(`Server returned ${probe.status}`);
+  } catch (err) {
+    statusBox.style.background = 'rgba(255,59,107,0.06)';
+    statusBox.style.borderColor = 'rgba(255,59,107,0.25)';
+    statusBox.style.color = 'var(--accent2)';
+    document.getElementById('connect-status-dot').style.background = 'var(--accent2)';
+    statusText.textContent = `Could not reach backend — check your URL`;
+    resetConnectBtn();
+    return;
+  }
+
+  statusText.textContent = 'Connected! Starting stream…';
+
+  // Small delay so user sees the "Connected" message
+  await new Promise(r => setTimeout(r, 600));
+
+  const src = {
+    id: Date.now().toString(36),
+    name: name || url.replace('https://', '').split('.')[0],
+    url,
+    endpoint: `${url}/`,
+    interval: 800,
+    bg: 'rgba(0,212,255,0.08)',
+    icon: '🟢',
+    anomalies: 0,
+  };
+
+  sources.push(src);
+  renderSources();
+  startSourcePolling(src);
+
+  // Reset modal
+  closeModal();
+  resetConnectBtn();
+  document.getElementById('source-url').value = '';
+  document.getElementById('source-name').value = '';
+  statusBox.style.display = 'none';
+  statusBox.style.background = '';
+  statusBox.style.borderColor = '';
+  statusBox.style.color = '';
+
+  toast(`✓ ${src.name} is live`, 'success');
+}
+
+function resetConnectBtn() {
+  document.getElementById('connect-btn').disabled = false;
+  document.getElementById('connect-spinner').style.display = 'none';
+  document.getElementById('connect-btn-text').textContent = 'Connect & Start';
+}
+
+// ─── GRAFANA ───
+function loadGrafana() {
+  const url = document.getElementById('grafana-url').value.trim();
+  if (!url) { toast('Enter a Grafana dashboard URL', 'error'); return; }
+
+  const frame = document.getElementById('grafana-frame');
+  const overlay = document.getElementById('grafana-overlay');
+  const link = document.getElementById('grafana-open-link');
+
+  frame.src = url;
+  frame.style.display = 'block';
+  overlay.style.display = 'none';
+  link.href = url;
+  toast('Grafana dashboard loaded', 'success');
+}
+
+function refreshGrafana() {
+  const frame = document.getElementById('grafana-frame');
+  if (frame.src) { frame.src = frame.src; toast('Dashboard refreshed', 'info'); }
+}
+
+// ─── NAV ───
+function setNav(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── TOAST ───
+function toast(msg, type = 'info') {
+  const wrap = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  t.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${msg}</span>`;
+  wrap.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// ─── INIT ───
+drawChart();
+</script>
+</body>
+</html>
