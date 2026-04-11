@@ -339,27 +339,7 @@
   .panel-title-dot.red { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
   .panel-body { padding: 18px; }
 
-  /* ─── STREAM CHART ─── */
-  .chart-wrap {
-    position: relative;
-    height: 180px;
-  }
 
-  canvas.stream-canvas {
-    width: 100%; height: 100%;
-    display: block;
-  }
-
-  .chart-legend {
-    display: flex; gap: 16px;
-    padding: 0 18px 14px;
-  }
-  .legend-item {
-    display: flex; align-items: center; gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 10px; color: var(--muted);
-  }
-  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 
   /* ─── GRAFANA EMBED ─── */
   .grafana-wrap {
@@ -830,27 +810,7 @@
     <!-- MAIN STREAM CHART + SOURCES -->
     <div class="two-col">
       <div>
-        <!-- STREAM CHART -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">
-              <span class="panel-title-dot"></span>
-              Live Metric Stream
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">WINDOW: 60s</span>
-              <button class="btn btn-ghost btn-sm" onclick="clearChart()">CLEAR</button>
-            </div>
-          </div>
-          <div class="chart-wrap" style="padding:16px 18px 0">
-            <canvas id="streamChart"></canvas>
-          </div>
-          <div class="chart-legend">
-            <div class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span>Metric Value</div>
-            <div class="legend-item"><span class="legend-dot" style="background:var(--accent2)"></span>Anomaly</div>
-            <div class="legend-item"><span class="legend-dot" style="background:rgba(245,158,11,0.6);"></span>Threshold</div>
-          </div>
-        </div>
+
 
         <!-- GRAFANA -->
         <div class="grafana-wrap" style="margin-top:20px">
@@ -984,110 +944,7 @@ let totalDPS = 0;
 // source types not needed — URL-based connection only
 // polling managed per-source in sourceTimers
 
-// ─── CHART SETUP ───
-const canvas = document.getElementById('streamChart');
-const ctx = canvas.getContext('2d');
-const POINTS = 80;
-let chartData = Array(POINTS).fill(null).map(() => ({ val: 50 + Math.random() * 10, anomaly: false }));
 
-
-function resizeCanvas() {
-  const wrap = canvas.parentElement;
-  canvas.width = wrap.offsetWidth;
-  canvas.height = wrap.offsetHeight;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-function drawChart() {
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-
-  const padL = 36, padR = 12, padT = 12, padB = 24;
-  const cW = W - padL - padR, cH = H - padT - padB;
-
-  // Grid
-  ctx.strokeStyle = 'rgba(30,45,74,0.8)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = padT + (i / 4) * cH;
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-  }
-
-  // Values
-  const vals = chartData.map(d => d.val);
-  const mn = Math.min(...vals) - 5, mx = Math.max(...vals) + 5;
-  const scaleY = v => padT + cH - ((v - mn) / (mx - mn)) * cH;
-  const scaleX = i => padL + (i / (POINTS - 1)) * cW;
-
-  // Y labels
-  ctx.fillStyle = '#475569';
-  ctx.font = '9px Space Mono, monospace';
-  ctx.textAlign = 'right';
-  for (let i = 0; i <= 4; i++) {
-    const v = mn + ((4 - i) / 4) * (mx - mn);
-    ctx.fillText(v.toFixed(0), padL - 4, padT + (i / 4) * cH + 3);
-  }
-
-  // Threshold line
-  const thresh = mn + 0.75 * (mx - mn);
-  const ty = scaleY(thresh);
-  ctx.strokeStyle = 'rgba(245,158,11,0.35)';
-  ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(W - padR, ty); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Gradient fill
-  const grad = ctx.createLinearGradient(0, padT, 0, H - padB);
-  grad.addColorStop(0, 'rgba(0,212,255,0.18)');
-  grad.addColorStop(1, 'rgba(0,212,255,0)');
-  ctx.beginPath();
-  ctx.moveTo(scaleX(0), scaleY(chartData[0].val));
-  for (let i = 1; i < POINTS; i++) ctx.lineTo(scaleX(i), scaleY(chartData[i].val));
-  ctx.lineTo(scaleX(POINTS - 1), H - padB);
-  ctx.lineTo(scaleX(0), H - padB);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Main line
-  ctx.beginPath();
-  ctx.strokeStyle = '#00d4ff';
-  ctx.lineWidth = 1.8;
-  ctx.lineJoin = 'round';
-  ctx.moveTo(scaleX(0), scaleY(chartData[0].val));
-  for (let i = 1; i < POINTS; i++) ctx.lineTo(scaleX(i), scaleY(chartData[i].val));
-  ctx.stroke();
-
-  // Anomaly dots
-  for (let i = 0; i < POINTS; i++) {
-    if (chartData[i].anomaly) {
-      const x = scaleX(i), y = scaleY(chartData[i].val);
-      ctx.beginPath();
-      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff3b6b';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,59,107,0.3)';
-      ctx.lineWidth = 6;
-      ctx.stroke();
-      ctx.lineWidth = 1;
-    }
-  }
-
-  // Live dot
-  const last = chartData[POINTS - 1];
-  const lx = scaleX(POINTS - 1), ly = scaleY(last.val);
-  ctx.beginPath();
-  ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
-  ctx.fillStyle = '#00d4ff';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,212,255,0.3)';
-  ctx.lineWidth = 6;
-  ctx.stroke();
-}
-
-drawChart();
 
 // startStream / stopStream replaced by per-source polling via sendToBackend()
 
@@ -1156,11 +1013,6 @@ function addLogEntry(val) {
 function clearLog() {
   document.getElementById('anomaly-log').innerHTML =
     '<div style="text-align:center;padding:20px 0;color:var(--dim);font-family:var(--font-mono);font-size:10px">No anomalies detected yet.</div>';
-}
-
-function clearChart() {
-  chartData = Array(POINTS).fill(null).map(() => ({ val: 50 + Math.random() * 10, anomaly: false }));
-  drawChart();
 }
 
 function updateLastUpdate() {
@@ -1234,19 +1086,20 @@ async function sendToBackend(src) {
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
 
   try {
-    const res = await fetch(`${src.url}/`, {
+    const res = await fetch(`${src.url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: src.id, value })
+      body: JSON.stringify({
+  device_id: src.id,
+  value,
+  timestamp: Date.now()
+})
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    // Feed value into chart
+    // Feed value into anomaly detection
     const isAnomaly = spike;
-    chartData.push({ val: value, anomaly: isAnomaly });
-    if (chartData.length > POINTS) chartData.shift();
-    drawChart();
     updateLastUpdate();
     if (isAnomaly) handleAnomaly(value);
     updateStats();
@@ -1317,7 +1170,7 @@ async function connectSource() {
 
   // Probe the backend with a real POST
   try {
-    const probe = await fetch(`${url}/`, {
+    const probe = await fetch(`${url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: 'probe-' + Date.now(), value: 0 })
@@ -1412,7 +1265,6 @@ function toast(msg, type = 'info') {
 }
 
 // ─── INIT ───
-drawChart();
 </script>
 </body>
 </html>

@@ -1,18 +1,23 @@
+import os
+import time
+import json
+import pandas as pd
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from kafka import KafkaConsumer
+from kafka.errors import NoBrokersAvailable
+from sklearn.ensemble import IsolationForest
+
+from app.database.connection import SessionLocal
+from app.database import models
+
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
 def start_consumer():
     print("🚀 Consumer starting...")
-
-    import time
-    import json
-    import pandas as pd
-    from kafka import KafkaConsumer
-    from kafka.errors import NoBrokersAvailable
-    from sklearn.ensemble import IsolationForest
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    from app.database.connection import SessionLocal
-    from app.database import models
-
-    IST = ZoneInfo("Asia/Kolkata")
 
     # -----------------------------
     # 🔁 Retry until Kafka is ready
@@ -20,21 +25,33 @@ def start_consumer():
     while True:
         try:
             consumer = KafkaConsumer(
-                'sensor-data',
-                bootstrap_servers='kafka:9092',
-                group_id='anomify-consumer-live',
-                auto_offset_reset='latest',
+                "sensor-data",
+                bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP"),
+
+                # 🔥 IMPORTANT FIXES
+                group_id=None,
+                auto_offset_reset="earliest",
                 enable_auto_commit=True,
-                value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+
+                # 🔐 Confluent Cloud config
+                security_protocol="SASL_SSL",
+                sasl_mechanism="PLAIN",
+                sasl_plain_username=os.getenv("KAFKA_API_KEY"),
+                sasl_plain_password=os.getenv("KAFKA_API_SECRET"),
+
+                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                consumer_timeout_ms=1000,
             )
-            print("✅ Connected to Kafka (Consumer)")
+
+            print("✅ Connected to Confluent Kafka (Consumer)")
             break
+
         except NoBrokersAvailable:
-            print("❌ Kafka not ready for consumer, retrying in 5 sec...")
+            print("❌ Kafka not ready, retrying in 5 sec...")
             time.sleep(5)
 
     # -----------------------------
-    # DB + ML setup
+    # 🧠 ML + DB setup
     # -----------------------------
     session = SessionLocal()
     model = IsolationForest(contamination=0.1, random_state=42)
@@ -45,84 +62,107 @@ def start_consumer():
     print("✅ Consumer & ML ready. Listening for data...")
 
     # -----------------------------
-    # Main consumption loop
+    # 🔄 POLL LOOP (FIXED)
     # -----------------------------
-    for message in consumer:
+    while True:
         try:
-            data = message.value
+            msg_pack = consumer.poll(timeout_ms=1000)
 
-            # Ensure correct type
-            data['value'] = float(data['value'])
+            for tp, messages in msg_pack.items():
+                for message in messages:
+                    data = message.value
 
-            # -----------------------------
-            # Timestamp handling (IST)
-            # -----------------------------
-            if isinstance(data.get('timestamp'), str):
-                dt = datetime.fromisoformat(data['timestamp'])
-            elif isinstance(data.get('timestamp'), datetime):
-                dt = data['timestamp']
-            else:
-                dt = datetime.now(IST)
+                    print("📥 RECEIVED:", data)  # 🔥 DEBUG
+                    # 🔥 VALIDATION FIX
+                    if not data or "value" not in data or "device_id" not in data:
+                     print("⚠️ Skipping invalid message:", data)
+                     continue
 
-            if dt.tzinfo is None:
-                dt_ist = dt.replace(tzinfo=IST)
-            else:
-                dt_ist = dt.astimezone(IST)
+                    try:
+                      data["value"] = float(data["value"])
+                    except Exception:
+                      print("⚠️ Invalid value format:", data)
+                      continue
+                    # -----------------------------
+                    # Ensure correct type
+                    # -----------------------------
+                    data["value"] = float(data["value"])
+        
+                    # -----------------------------
+                    # Timestamp handling
+                    # -----------------------------
+                    if isinstance(data.get("timestamp"), (int, float)):
+                        dt = datetime.fromtimestamp(data["timestamp"], IST)
+                    elif isinstance(data.get("timestamp"), str):
+                        dt = datetime.fromisoformat(data["timestamp"])
+                    else:
+                        dt = datetime.now(IST)
 
-            data['ts'] = dt_ist
-            data['timestamp'] = dt_ist.replace(tzinfo=None)
+                    if dt.tzinfo is None:
+                        dt_ist = dt.replace(tzinfo=IST)
+                    else:
+                        dt_ist = dt.astimezone(IST)
 
-            # -----------------------------
-            # Sliding window update
-            # -----------------------------
-            df_window.loc[len(df_window)] = data
+                    data["ts"] = dt_ist
+                    data["timestamp"] = dt_ist.replace(tzinfo=None)
 
-            if len(df_window) > window_size:
-                df_window = df_window.tail(window_size).reset_index(drop=True)
+                    # -----------------------------
+                    # Sliding window
+                    # -----------------------------
+                    df_window.loc[len(df_window)] = data
 
-            latest = df_window.iloc[-1]
+                    if len(df_window) > window_size:
+                        df_window = df_window.tail(window_size).reset_index(drop=True)
 
-            # -----------------------------
-            # ALWAYS insert sensor data
-            # -----------------------------
-            sensor_record = models.SensorData(
-                device_id=str(latest['device_id']),
-                value=float(latest['value']),
-                timestamp=latest['timestamp'],
-                ts=latest['ts']
-            )
-            session.add(sensor_record)
+                    latest = df_window.iloc[-1]
 
-            # -----------------------------
-            # ML anomaly detection
-            # -----------------------------
-            if len(df_window) >= 10:
-                model.fit(df_window[['value']])
-
-                df_window['anomaly_score'] = model.decision_function(df_window[['value']])
-                df_window['is_anomaly'] = model.predict(df_window[['value']])
-                df_window['is_anomaly'] = df_window['is_anomaly'].map({1: False, -1: True})
-
-                latest = df_window.iloc[-1]
-
-                if latest['is_anomaly']:
-                    anomaly_record = models.Anomaly(
-                        device_id=str(latest['device_id']),
-                        value=float(latest['value']),
-                        timestamp=latest['ts'],
-                        anomaly_score=float(latest['anomaly_score']),
-                        is_anomaly=True
+                    # -----------------------------
+                    # Store sensor data
+                    # -----------------------------
+                    sensor_record = models.SensorData(
+                        device_id=str(latest["device_id"]),
+                        value=float(latest["value"]),
+                        timestamp=latest["timestamp"],
+                        ts=latest["ts"],
                     )
-                    session.add(anomaly_record)
+                    session.add(sensor_record)
 
-                    print("🚨 Anomaly detected:", latest.to_dict())
-                else:
-                    print("✅ Normal:", latest.to_dict())
+                    # -----------------------------
+                    # ML anomaly detection
+                    # -----------------------------
+                    if len(df_window) >= 10:
+                        model.fit(df_window[["value"]])
 
-            # -----------------------------
-            # Commit to DB
-            # -----------------------------
-            session.commit()
+                        df_window["anomaly_score"] = model.decision_function(
+                            df_window[["value"]]
+                        )
+                        df_window["is_anomaly"] = model.predict(
+                            df_window[["value"]]
+                        )
+                        df_window["is_anomaly"] = df_window["is_anomaly"].map(
+                            {1: False, -1: True}
+                        )
+
+                        latest = df_window.iloc[-1]
+
+                        if latest["is_anomaly"]:
+                            anomaly_record = models.Anomaly(
+                                device_id=str(latest["device_id"]),
+                                value=float(latest["value"]),
+                                timestamp=latest["ts"],
+                                anomaly_score=float(latest["anomaly_score"]),
+                                is_anomaly=True,
+                            )
+                            session.add(anomaly_record)
+
+                            print("🚨 Anomaly detected:", latest.to_dict())
+                        else:
+                            print("✅ Normal:", latest.to_dict())
+
+                    # -----------------------------
+                    # Commit DB
+                    # -----------------------------
+                    session.commit()
 
         except Exception as e:
             print("❌ Error processing message:", str(e))
