@@ -34,7 +34,6 @@
     overflow-x: hidden;
   }
 
-  /* ─── GRID BACKGROUND ─── */
   body::before {
     content: '';
     position: fixed; inset: 0;
@@ -61,7 +60,6 @@
     to { transform: translate(300px, 200px); }
   }
 
-  /* ─── LAYOUT ─── */
   .shell {
     position: relative; z-index: 1;
     min-height: 100vh;
@@ -73,7 +71,6 @@
       "nav   main";
   }
 
-  /* ─── TOPBAR ─── */
   .topbar {
     grid-area: topbar;
     display: flex; align-items: center; justify-content: space-between;
@@ -149,7 +146,6 @@
 
   .btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* ─── SIDEBAR NAV ─── */
   .nav {
     grid-area: nav;
     display: flex; flex-direction: column;
@@ -234,7 +230,6 @@
     text-align: center;
   }
 
-  /* ─── MAIN ─── */
   .main {
     grid-area: main;
     overflow-y: auto;
@@ -242,7 +237,6 @@
     display: flex; flex-direction: column; gap: 24px;
   }
 
-  /* ─── PAGE HEADER ─── */
   .page-header {
     display: flex; align-items: flex-start; justify-content: space-between;
   }
@@ -256,7 +250,6 @@
     margin-top: 4px;
   }
 
-  /* ─── STAT CARDS ─── */
   .stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -306,7 +299,6 @@
   .stat-trend { color: var(--ok); }
   .stat-trend.down { color: var(--accent2); }
 
-  /* ─── TWO-COL ─── */
   .two-col {
     display: grid;
     grid-template-columns: 1fr 340px;
@@ -314,7 +306,6 @@
     align-items: start;
   }
 
-  /* ─── PANEL ─── */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -338,8 +329,6 @@
   }
   .panel-title-dot.red { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
   .panel-body { padding: 18px; }
-
-
 
   /* ─── GRAFANA EMBED ─── */
   .grafana-wrap {
@@ -422,6 +411,30 @@
     font-size: 11px;
     border-radius: 5px;
   }
+
+  /* ─── GRAFANA BLOCKED BANNER ─── */
+  .grafana-blocked-banner {
+    display: none;
+    align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: rgba(245,158,11,0.07);
+    border-top: 1px solid rgba(245,158,11,0.2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--warn);
+  }
+  .grafana-blocked-banner a {
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid rgba(0,212,255,0.3);
+    padding: 4px 10px;
+    border-radius: 5px;
+    transition: background .15s;
+  }
+  .grafana-blocked-banner a:hover { background: rgba(0,212,255,0.08); }
+  .grafana-blocked-banner span { flex: 1; }
 
   /* ─── DATA SOURCES ─── */
   .sources-list { display: flex; flex-direction: column; gap: 10px; }
@@ -525,7 +538,7 @@
   .log-time { font-family: var(--font-mono); font-size: 10px; color: var(--dim); margin-top: 2px; }
   .log-source { color: var(--muted); font-size: 10px; font-family: var(--font-mono); }
 
-  /* ─── ADD SOURCE MODAL ─── */
+  /* ─── MODAL ─── */
   .modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(5,8,16,0.85);
@@ -570,25 +583,6 @@
 
   .modal-body { padding: 22px; }
 
-  .source-types {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 10px; margin-bottom: 20px;
-  }
-  .source-type-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 12px;
-    cursor: pointer;
-    text-align: center;
-    transition: all .2s;
-  }
-  .source-type-btn:hover { border-color: var(--accent); }
-  .source-type-btn.selected { border-color: var(--accent); background: rgba(0,212,255,0.05); }
-  .source-type-icon { font-size: 22px; margin-bottom: 6px; }
-  .source-type-name { font-size: 12px; font-weight: 700; }
-  .source-type-desc { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
-
   .form-group { margin-bottom: 16px; }
   .form-label { font-size: 12px; font-weight: 700; margin-bottom: 6px; display: block; color: var(--muted); }
   .form-input {
@@ -606,32 +600,12 @@
   .form-input:focus { border-color: var(--accent); }
   .form-input::placeholder { color: var(--dim); }
 
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-  .slider-group { margin-bottom: 16px; }
-  .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-  .slider-label { font-size: 12px; font-weight: 700; color: var(--muted); }
-  .slider-val { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
-  input[type=range] {
-    width: 100%; -webkit-appearance: none;
-    height: 4px; background: var(--border); border-radius: 2px; outline: none;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 8px var(--accent);
-    cursor: pointer;
-  }
-
   .modal-footer {
     display: flex; justify-content: flex-end; gap: 10px;
     padding: 16px 22px;
     border-top: 1px solid var(--border);
   }
 
-  /* ─── LOADING SPINNER ─── */
   .spinner {
     width: 14px; height: 14px;
     border: 2px solid rgba(0,0,0,0.2);
@@ -665,7 +639,6 @@
   .toast.error { border-color: rgba(255,59,107,0.3); }
   .toast-icon { font-size: 16px; }
 
-  /* ─── ANOMALY PULSE BADGE ─── */
   .anomaly-pulse {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 3px 8px;
@@ -677,12 +650,10 @@
     color: var(--accent2);
   }
 
-  /* ─── SCROLLBAR ─── */
   .main::-webkit-scrollbar { width: 6px; }
   .main::-webkit-scrollbar-track { background: transparent; }
   .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  /* ─── RESPONSIVE ─── */
   @media (max-width: 900px) {
     .shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
     .nav { display: none; }
@@ -772,7 +743,6 @@
   <!-- MAIN -->
   <main class="main">
 
-    <!-- PAGE HEADER -->
     <div class="page-header">
       <div>
         <div class="page-title">Anomaly Detection Dashboard</div>
@@ -811,7 +781,6 @@
     <div class="two-col">
       <div>
 
-
         <!-- GRAFANA -->
         <div class="grafana-wrap" style="margin-top:20px">
           <div class="grafana-header">
@@ -825,7 +794,8 @@
             </div>
           </div>
           <div class="grafana-url-bar">
-            <input class="grafana-url-input" type="text" id="grafana-url" placeholder="https://your-grafana.grafana.net/d/xxxxx/dashboard?orgId=1&refresh=5s&kiosk" />
+            <input class="grafana-url-input" type="text" id="grafana-url"
+              placeholder="https://your-grafana.grafana.net/d/xxxxx/dashboard?orgId=1&refresh=5s&kiosk" />
             <button class="btn btn-primary btn-sm" onclick="loadGrafana()">Load</button>
           </div>
           <div class="grafana-iframe-wrap">
@@ -834,7 +804,19 @@
               <p>Enter your Grafana dashboard URL above</p>
               <small>Supports Grafana Cloud · Self-hosted · Kiosk mode</small>
             </div>
-            <iframe id="grafana-frame" src="" style="display:none"></iframe>
+            <!-- sandbox allows scripts/forms/same-origin needed for Grafana -->
+            <iframe
+              id="grafana-frame"
+              src=""
+              style="display:none"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              referrerpolicy="no-referrer-when-downgrade"
+            ></iframe>
+          </div>
+          <!-- shown when browser blocks the embed -->
+          <div class="grafana-blocked-banner" id="grafana-blocked-banner">
+            <span>⚠ Dashboard blocked by Grafana's embed policy — open it directly instead.</span>
+            <a id="grafana-direct-link" href="#" target="_blank">Open in new tab ↗</a>
           </div>
         </div>
       </div>
@@ -890,12 +872,9 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-
-      <!-- Simple helper text -->
       <p style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.7;">
         Paste your deployed backend URL (e.g. Render) and give it a name.<br>That's it — Anomify handles the rest.
       </p>
-
       <div class="form-group">
         <label class="form-label">BACKEND URL</label>
         <input class="form-input" id="source-url" type="url"
@@ -905,14 +884,11 @@
           Your Render / Railway / Fly.io deployed backend link
         </div>
       </div>
-
       <div class="form-group" style="margin-top:14px;">
         <label class="form-label">SOURCE NAME <span style="color:var(--dim);font-weight:400">(optional)</span></label>
         <input class="form-input" id="source-name" type="text"
           placeholder="e.g. Sensor Stream 1" />
       </div>
-
-      <!-- Connection status indicator (hidden until connecting) -->
       <div id="connect-status" style="display:none;align-items:center;gap:10px;
         padding:10px 14px;border-radius:8px;
         background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);
@@ -920,7 +896,6 @@
         <span id="connect-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1s infinite;flex-shrink:0;display:inline-block;"></span>
         <span id="connect-status-text">Reaching backend…</span>
       </div>
-
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -938,30 +913,18 @@
 <script>
 // ─── STATE ───
 const sources = [];
-const logEntries = [];
 let anomalyCount = 0;
-let totalDPS = 0;
-// source types not needed — URL-based connection only
-// polling managed per-source in sourceTimers
-
-
-
-// startStream / stopStream replaced by per-source polling via sendToBackend()
+const sourceTimers = {};
 
 function handleAnomaly(val) {
   anomalyCount++;
   document.getElementById('anomaly-count').textContent = anomalyCount;
-
   const badge = document.getElementById('top-anomaly-badge');
   badge.style.display = 'inline-flex';
   document.getElementById('top-anomaly-text').textContent =
     `Anomaly #${anomalyCount} — z-score ${(2.5 + Math.random() * 2).toFixed(2)}`;
-
   setTimeout(() => { badge.style.display = 'none'; }, 4000);
-
   addLogEntry(val);
-
-  // Update source anomaly status
   if (sources.length > 0) {
     const src = sources[Math.floor(Math.random() * sources.length)];
     src.anomalies = (src.anomalies || 0) + 1;
@@ -980,7 +943,6 @@ function handleAnomaly(val) {
 }
 
 function addLogEntry(val) {
-  const severities = ['critical', 'warn', 'info'];
   const messages = [
     [`Spike detected`, `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
     [`Point anomaly`, `Z-score ${(2.5+Math.random()*2).toFixed(2)} — deviation from rolling mean`],
@@ -991,11 +953,9 @@ function addLogEntry(val) {
   const sev = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
   const msg = messages[Math.floor(Math.random() * messages.length)];
   const src = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
-
   const log = document.getElementById('anomaly-log');
   const empty = log.querySelector('div');
-  if (empty && empty.style.paddingTop) log.innerHTML = '';
-
+  if (empty && empty.style.paddingTop !== undefined && !empty.classList.contains('log-entry')) log.innerHTML = '';
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.innerHTML = `
@@ -1005,8 +965,6 @@ function addLogEntry(val) {
       <div class="log-time">${new Date().toLocaleTimeString()} · <span class="log-source">${src}</span></div>
     </div>`;
   log.prepend(entry);
-
-  // Keep max 30
   while (log.children.length > 30) log.removeChild(log.lastChild);
 }
 
@@ -1037,7 +995,6 @@ function renderSources() {
     document.getElementById('stat-sources-sub').textContent = 'No sources active';
     return;
   }
-
   list.innerHTML = '';
   sources.forEach(src => {
     const el = document.createElement('div');
@@ -1047,7 +1004,7 @@ function renderSources() {
       <div class="source-icon" style="background:${src.bg}">${src.icon}</div>
       <div class="source-info">
         <div class="source-name">${src.name}</div>
-        <div class="source-meta">${src.type} · ${src.endpoint || 'render.backend'} · ${src.interval}ms</div>
+        <div class="source-meta">${src.endpoint || 'render.backend'} · ${src.interval}ms</div>
       </div>
       <div class="source-status running" id="src-status-${src.id}">
         <span class="source-status-dot"></span> RUNNING
@@ -1059,7 +1016,6 @@ function renderSources() {
       </div>`;
     list.appendChild(el);
   });
-
   document.getElementById('stat-sources').textContent = sources.length;
   document.getElementById('stat-sources-sub').textContent = `${sources.length} active stream${sources.length !== 1 ? 's' : ''}`;
 }
@@ -1073,47 +1029,27 @@ function removeSource(id) {
   toast('Source removed', 'info');
 }
 
-// ─── BACKEND CONFIG ───
-// backend URL is set per-source at connect time
-
-// Per-source polling timers: { sourceId -> intervalId }
-const sourceTimers = {};
-
-// Send one data point to POST /
 async function sendToBackend(src) {
   const noise = (Math.random() - 0.5) * 8;
   const spike = Math.random() < 0.04;
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
-
   try {
     const res = await fetch(`${src.url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-  device_id: src.id,
-  value,
-  timestamp: Date.now()
-})
+      body: JSON.stringify({ device_id: src.id, value, timestamp: Date.now() })
     });
-
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    // Feed value into anomaly detection
-    const isAnomaly = spike;
     updateLastUpdate();
-    if (isAnomaly) handleAnomaly(value);
+    if (spike) handleAnomaly(value);
     updateStats();
-
-    // Clear any error state
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl && statusEl.dataset.error) {
       statusEl.className = 'source-status running';
       statusEl.innerHTML = `<span class="source-status-dot"></span> RUNNING`;
       delete statusEl.dataset.error;
     }
-
   } catch (err) {
-    console.warn(`[${src.name}] POST failed:`, err.message);
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl) {
       statusEl.className = 'source-status anomaly';
@@ -1124,26 +1060,117 @@ async function sendToBackend(src) {
 }
 
 function startSourcePolling(src) {
-  // Fire once immediately, then on interval
   sendToBackend(src);
   sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
 }
 
 function stopSourcePolling(id) {
-  if (sourceTimers[id]) {
-    clearInterval(sourceTimers[id]);
-    delete sourceTimers[id];
+  if (sourceTimers[id]) { clearInterval(sourceTimers[id]); delete sourceTimers[id]; }
+}
+
+// ─── GRAFANA ───
+let grafanaBlockTimer = null;
+
+function loadGrafana() {
+  const url = document.getElementById('grafana-url').value.trim();
+  if (!url) { toast('Enter a Grafana dashboard URL', 'error'); return; }
+
+  const frame   = document.getElementById('grafana-frame');
+  const overlay = document.getElementById('grafana-overlay');
+  const banner  = document.getElementById('grafana-blocked-banner');
+  const link    = document.getElementById('grafana-open-link');
+  const direct  = document.getElementById('grafana-direct-link');
+
+  // Reset previous state
+  banner.style.display = 'none';
+  if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
+
+  // Show a loading state in the overlay while the iframe starts
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="grafana-overlay-icon" style="animation:blink 1s infinite">📊</div>
+    <p>Loading dashboard…</p>
+    <small>${url.replace(/https?:\/\//, '').substring(0, 60)}</small>`;
+
+  // Set the iframe src
+  frame.src = url;
+  frame.style.display = 'block';
+  link.href  = url;
+  direct.href = url;
+
+  // onload fires even when X-Frame-Options blocks — the frame loads a blank page.
+  // We can't read cross-origin content, so we use a short timeout:
+  // if the frame's contentDocument is still empty/about:blank after load, it was blocked.
+  frame.onload = function () {
+    if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
+    try {
+      // Same-origin only: if we can read the doc, check it has real content
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      if (!doc || doc.URL === 'about:blank' || !doc.body || doc.body.innerHTML.trim() === '') {
+        // Blank page = blocked for sure
+        showGrafanaBlocked();
+      } else {
+        // Same-origin and has content — loaded fine
+        overlay.style.display = 'none';
+        toast('Grafana dashboard loaded', 'success');
+      }
+    } catch (e) {
+      // SecurityError = cross-origin frame fired onload.
+      // This happens BOTH when Grafana loads correctly AND when the browser
+      // replaces it with its own "blocked" error page (also cross-origin).
+      // We cannot tell them apart — so treat it as blocked and show the fallback.
+      showGrafanaBlocked();
+    }
+  };
+
+  // If onload never fires within 6 s, assume network/block issue
+  grafanaBlockTimer = setTimeout(() => {
+    if (overlay.style.display !== 'none') showGrafanaBlocked();
+  }, 6000);
+}
+
+function showGrafanaBlocked() {
+  const overlay = document.getElementById('grafana-overlay');
+  const banner  = document.getElementById('grafana-blocked-banner');
+  const frame   = document.getElementById('grafana-frame');
+  const url     = document.getElementById('grafana-url').value.trim();
+
+  frame.style.display = 'none';
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="grafana-overlay-icon">🔒</div>
+    <p style="font-weight:700;color:var(--text)">Embed blocked by Grafana</p>
+    <small style="text-align:center;line-height:2;max-width:320px;">
+      Grafana Cloud sets <code style="color:var(--warn);background:rgba(245,158,11,0.1);padding:1px 5px;border-radius:3px">X-Frame-Options: SAMEORIGIN</code><br>
+      which prevents iframe embedding in other pages.
+    </small>
+    <a href="${url}" target="_blank"
+       style="margin-top:8px;display:inline-flex;align-items:center;gap:8px;
+              padding:10px 20px;border-radius:7px;
+              background:var(--accent);color:#000;font-weight:700;
+              font-family:var(--font-sans);font-size:13px;text-decoration:none;
+              transition:background .2s;"
+       onmouseover="this.style.background='#33dcff'"
+       onmouseout="this.style.background='var(--accent)'">
+      Open Dashboard ↗
+    </a>`;
+
+  banner.style.display = 'none'; // hide the bottom banner — the overlay button is enough
+}
+
+function refreshGrafana() {
+  const frame  = document.getElementById('grafana-frame');
+  const banner = document.getElementById('grafana-blocked-banner');
+  if (frame.src && frame.src !== window.location.href) {
+    banner.style.display = 'none';
+    frame.src = frame.src;
+    toast('Dashboard refreshed', 'info');
   }
 }
 
 // ─── MODAL ───
-function openModal() {
-  document.getElementById('modal').classList.add('open');
-}
-function closeModal() {
-  document.getElementById('modal').classList.remove('open');
-  resetConnectBtn();
-}
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); resetConnectBtn(); }
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) closeModal();
 });
@@ -1151,9 +1178,7 @@ document.getElementById('modal').addEventListener('click', e => {
 async function connectSource() {
   let url = document.getElementById('source-url').value.trim();
   const name = document.getElementById('source-name').value.trim();
-
   if (!url) { toast('Please paste your backend URL', 'error'); return; }
-  // Normalise — strip trailing slash
   url = url.replace(/\/$/, '');
 
   const btn = document.getElementById('connect-btn');
@@ -1168,14 +1193,12 @@ async function connectSource() {
   statusBox.style.display = 'flex';
   statusText.textContent = 'Reaching backend…';
 
-  // Probe the backend with a real POST
   try {
     const probe = await fetch(`${url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: 'probe-' + Date.now(), value: 0 })
     });
-    // 200 or 422 (validation error) both mean the server is alive
     if (!probe.ok && probe.status !== 422) throw new Error(`Server returned ${probe.status}`);
   } catch (err) {
     statusBox.style.background = 'rgba(255,59,107,0.06)';
@@ -1188,8 +1211,6 @@ async function connectSource() {
   }
 
   statusText.textContent = 'Connected! Starting stream…';
-
-  // Small delay so user sees the "Connected" message
   await new Promise(r => setTimeout(r, 600));
 
   const src = {
@@ -1207,7 +1228,6 @@ async function connectSource() {
   renderSources();
   startSourcePolling(src);
 
-  // Reset modal
   closeModal();
   resetConnectBtn();
   document.getElementById('source-url').value = '';
@@ -1226,27 +1246,6 @@ function resetConnectBtn() {
   document.getElementById('connect-btn-text').textContent = 'Connect & Start';
 }
 
-// ─── GRAFANA ───
-function loadGrafana() {
-  const url = document.getElementById('grafana-url').value.trim();
-  if (!url) { toast('Enter a Grafana dashboard URL', 'error'); return; }
-
-  const frame = document.getElementById('grafana-frame');
-  const overlay = document.getElementById('grafana-overlay');
-  const link = document.getElementById('grafana-open-link');
-
-  frame.src = url;
-  frame.style.display = 'block';
-  overlay.style.display = 'none';
-  link.href = url;
-  toast('Grafana dashboard loaded', 'success');
-}
-
-function refreshGrafana() {
-  const frame = document.getElementById('grafana-frame');
-  if (frame.src) { frame.src = frame.src; toast('Dashboard refreshed', 'info'); }
-}
-
 // ─── NAV ───
 function setNav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1263,8 +1262,6 @@ function toast(msg, type = 'info') {
   wrap.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3000);
 }
-
-// ─── INIT ───
 </script>
 </body>
 </html>
