@@ -60,6 +60,17 @@
     to { transform: translate(300px, 200px); }
   }
 
+  .shell {
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "main";
+  }
+
   .topbar {
     grid-area: topbar;
     display: flex; align-items: center; justify-content: space-between;
@@ -830,11 +841,17 @@
   .main::-webkit-scrollbar { width: 6px; }
   .main::-webkit-scrollbar-track { background: transparent; }
   .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
-  <!-- NAV (hidden, kept for compatibility) -->
+<div class="shell">
+  <!-- NAV -->
   <nav class="nav">
     <div class="nav-logo">
       <div class="logo-icon">
@@ -845,6 +862,43 @@
         </svg>
       </div>
       <span class="logo-text">ano<span>mify</span></span>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Monitor</div>
+      <div class="nav-item active" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        Overview
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Stream
+        <span class="nav-badge" id="anomaly-count">0</span>
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Analytics
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Config</div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        Data Sources
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        Grafana
+      </div>
+      <div class="nav-item" onclick="setNav(this)">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Alert Rules
+      </div>
+    </div>
+
+    <div class="nav-footer">
+      <div class="version-tag">ANOMIFY v1.0.0 · BETA</div>
     </div>
   </nav>
 
@@ -939,6 +993,7 @@
               <p>Enter your Grafana dashboard URL above</p>
               <small>Supports Grafana Cloud · Self-hosted · Kiosk mode</small>
             </div>
+            <!-- sandbox allows scripts/forms/same-origin needed for Grafana -->
             <iframe
               id="grafana-frame"
               src=""
@@ -947,6 +1002,7 @@
               referrerpolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
+          <!-- shown when browser blocks the embed -->
           <div class="grafana-blocked-banner" id="grafana-blocked-banner">
             <span>⚠ Dashboard blocked by Grafana's embed policy — open it directly instead.</span>
             <a id="grafana-direct-link" href="#" target="_blank">Open in new tab ↗</a>
@@ -992,12 +1048,10 @@
           </div>
         </div>
       </div>
-      <div class="nav-footer">
-        <div class="version-tag">ANOMIFY v1.0.0 · BETA</div>
-      </div>
     </div>
 
   </main>
+</div>
 
 <!-- ALERTS SCRIM -->
 <div class="alerts-scrim" id="alerts-scrim" onclick="closeAlertsDrawer()"></div>
@@ -1086,125 +1140,13 @@
 const sources = [];
 let anomalyCount = 0;
 const sourceTimers = {};
-const alertsHistory = [];   // { sev, title, detail, sensor, timestamp, zscore, value }
+const alertsHistory = [];
 let alertFilter = 'all';
 let unreadAlerts = 0;
 
-// ─── ALERTS DRAWER ───
-function openAlertsDrawer() {
-  document.getElementById('alerts-drawer').classList.add('open');
-  document.getElementById('alerts-scrim').classList.add('open');
-  unreadAlerts = 0;
-  const ab = document.getElementById('alert-badge');
-  ab.textContent = '0';
-  ab.classList.remove('visible');
-  renderAlertsDrawer();
-}
-
-function closeAlertsDrawer() {
-  document.getElementById('alerts-drawer').classList.remove('open');
-  document.getElementById('alerts-scrim').classList.remove('open');
-}
-
-function setAlertFilter(el) {
-  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  alertFilter = el.dataset.filter;
-  renderAlertsDrawer();
-}
-
-function clearAlerts() {
-  alertsHistory.length = 0;
-  unreadAlerts = 0;
-  document.getElementById('alert-badge').classList.remove('visible');
-  renderAlertsDrawer();
-}
-
-function renderAlertsDrawer() {
-  const list     = document.getElementById('alerts-list');
-  const countEl  = document.getElementById('drawer-count');
-  const footerEl = document.getElementById('drawer-footer-info');
-
-  const filtered = alertFilter === 'all'
-    ? alertsHistory
-    : alertsHistory.filter(a => a.sev === alertFilter);
-
-  countEl.textContent = `${alertsHistory.length} alert${alertsHistory.length !== 1 ? 's' : ''}`;
-
-  if (filtered.length === 0) {
-    list.innerHTML = `<div class="alerts-empty">
-      <div class="alerts-empty-icon">🔔</div>
-      <span>${alertsHistory.length === 0 ? 'No alerts yet' : 'No ' + alertFilter + ' alerts'}</span>
-      <span style="color:var(--dim);font-size:10px">${alertsHistory.length === 0 ? 'Alerts appear here when anomalies are detected' : 'Try switching the filter above'}</span>
-    </div>`;
-    footerEl.textContent = '—';
-    return;
-  }
-
-  const sevColor = { critical: 'var(--accent2)', warn: 'var(--warn)', info: 'var(--accent)' };
-  const sevLabel = { critical: 'CRITICAL', warn: 'WARN', info: 'INFO' };
-
-  list.innerHTML = filtered.map(a => {
-    const dateStr = a.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const timeStr = a.timestamp.toLocaleTimeString();
-    return `
-    <div class="alert-item">
-      <div class="alert-sev-bar ${a.sev}"></div>
-      <div class="alert-body">
-        <div class="alert-title">${a.title}</div>
-        <div class="alert-detail">${a.detail}</div>
-        <div class="alert-meta">
-          <span class="alert-sensor-tag">
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-            ${a.sensor}
-          </span>
-          <span class="alert-time-tag">${dateStr} · ${timeStr}</span>
-          <span class="alert-zscore">z=${a.zscore}</span>
-        </div>
-      </div>
-      <div style="flex-shrink:0;font-family:var(--font-mono);font-size:9px;font-weight:700;
-                  padding:2px 6px;border-radius:3px;
-                  background:${sevColor[a.sev]}1a;color:${sevColor[a.sev]}">
-        ${sevLabel[a.sev]}
-      </div>
-    </div>`;
-  }).join('');
-
-  const oldest = filtered[filtered.length - 1];
-  footerEl.textContent = `Oldest: ${oldest.timestamp.toLocaleString()}`;
-}
-
-function createAlertObject(val, zscore) {
-  const alertMsgs = [
-    [`Spike detected`, `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
-    [`Point anomaly`, `Z-score ${zscore} — deviation from rolling mean`],
-    [`Contextual anomaly`, `Pattern break in time window (30s)`],
-    [`Collective anomaly`, `Cluster of outliers in stream buffer`],
-    [`Sudden drop`, `Value ${val.toFixed(2)} below lower bound`],
-  ];
-
-  const sev = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
-  const msg = alertMsgs[Math.floor(Math.random() * alertMsgs.length)];
-
-  const sensorName = sources.length > 0
-    ? sources[Math.floor(Math.random() * sources.length)].name
-    : 'unknown';
-
-  return {
-    sev,
-    title: msg[0],
-    detail: msg[1],
-    sensor: sensorName,
-    timestamp: new Date(),   // ✅ guaranteed timestamp
-    zscore,
-    value: val
-  };
-}
-
-// ─── ANOMALY HANDLER ───
 function handleAnomaly(val) {
   anomalyCount++;
-  document.getElementById('stat-anomalies').textContent = anomalyCount;
+  document.getElementById('anomaly-count').textContent = anomalyCount;
   const badge = document.getElementById('top-anomaly-badge');
   badge.style.display = 'inline-flex';
   const zscore = (2.5 + Math.random() * 2).toFixed(2);
@@ -1213,32 +1155,37 @@ function handleAnomaly(val) {
   setTimeout(() => { badge.style.display = 'none'; }, 4000);
   addLogEntry(val);
 
-  // Build alert and push to history
-  const alertMsgs = [
-    [`Spike detected`,     `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
-    [`Point anomaly`,      `Z-score ${zscore} — deviation from rolling mean`],
+  // Push to alerts history
+  const messages = [
+    [`Spike detected`, `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
+    [`Point anomaly`, `Z-score ${zscore} — deviation from rolling mean`],
     [`Contextual anomaly`, `Pattern break in time window (30s)`],
     [`Collective anomaly`, `Cluster of outliers in stream buffer`],
-    [`Sudden drop`,        `Value ${val.toFixed(2)} below lower bound`],
+    [`Sudden drop`, `Value ${val.toFixed(2)} below lower bound`],
   ];
-  const sev        = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
-  const msg        = alertMsgs[Math.floor(Math.random() * alertMsgs.length)];
-  const sensorName = sources.length > 0
-    ? sources[Math.floor(Math.random() * sources.length)].name
-    : 'unknown';
-
-const alertObj = createAlertObject(val, zscore);
-alertsHistory.unshift(alertObj);
+  const sev = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
+  const msg = messages[Math.floor(Math.random() * messages.length)];
+  const sensorName = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    sev,
+    title: msg[0],
+    detail: msg[1],
+    sensor: sensorName,
+    timestamp: new Date(),
+    zscore,
+    value: val,
+  };
+  alertsHistory.unshift(entry);
   if (alertsHistory.length > 200) alertsHistory.pop();
 
-  // Increment unread badge on Alerts button
+  // Update unread badge on button
   unreadAlerts++;
   const ab = document.getElementById('alert-badge');
   ab.textContent = unreadAlerts > 99 ? '99+' : unreadAlerts;
   ab.classList.add('visible');
-  // Always update alerts UI instantly
-renderAlertsDrawer();
-  // Live-refresh drawer if open
+
+  // If drawer is open, re-render
   if (document.getElementById('alerts-drawer').classList.contains('open')) {
     renderAlertsDrawer();
   }
@@ -1272,10 +1219,8 @@ function addLogEntry(val) {
   const msg = messages[Math.floor(Math.random() * messages.length)];
   const src = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
   const log = document.getElementById('anomaly-log');
-  // Clear placeholder if first real log comes
-if (log.children.length === 1 && log.textContent.includes('No anomalies')) {
-  log.innerHTML = '';
-}
+  const empty = log.querySelector('div');
+  if (empty && empty.style.paddingTop !== undefined && !empty.classList.contains('log-entry')) log.innerHTML = '';
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.innerHTML = `
@@ -1350,13 +1295,6 @@ function removeSource(id) {
 }
 
 async function sendToBackend(src) {
-  // 🔥 CRITICAL FIX: Check if source still exists before sending
-  if (!sources.find(s => s.id === src.id)) {
-    // Source was deleted, stop further polling
-    stopSourcePolling(src.id);
-    return;
-  }
-  
   const noise = (Math.random() - 0.5) * 8;
   const spike = Math.random() < 0.04;
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
@@ -1377,10 +1315,6 @@ async function sendToBackend(src) {
       delete statusEl.dataset.error;
     }
   } catch (err) {
-    // Check again if source still exists before showing error
-    if (!sources.find(s => s.id === src.id)) {
-      return; // Source was deleted, ignore the error
-    }
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl) {
       statusEl.className = 'source-status anomaly';
@@ -1389,6 +1323,7 @@ async function sendToBackend(src) {
     }
   }
 }
+
 function startSourcePolling(src) {
   sendToBackend(src);
   sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
@@ -1396,6 +1331,93 @@ function startSourcePolling(src) {
 
 function stopSourcePolling(id) {
   if (sourceTimers[id]) { clearInterval(sourceTimers[id]); delete sourceTimers[id]; }
+}
+
+// ─── ALERTS DRAWER ───
+function openAlertsDrawer() {
+  document.getElementById('alerts-drawer').classList.add('open');
+  document.getElementById('alerts-scrim').classList.add('open');
+  // Clear unread badge
+  unreadAlerts = 0;
+  document.getElementById('alert-badge').textContent = '0';
+  document.getElementById('alert-badge').classList.remove('visible');
+  renderAlertsDrawer();
+}
+
+function closeAlertsDrawer() {
+  document.getElementById('alerts-drawer').classList.remove('open');
+  document.getElementById('alerts-scrim').classList.remove('open');
+}
+
+function setAlertFilter(el) {
+  document.querySelectorAll('.filter-pill').forEach(p => {
+    p.classList.remove('active');
+  });
+  el.classList.add('active');
+  alertFilter = el.dataset.filter;
+  renderAlertsDrawer();
+}
+
+function clearAlerts() {
+  alertsHistory.length = 0;
+  unreadAlerts = 0;
+  document.getElementById('alert-badge').classList.remove('visible');
+  renderAlertsDrawer();
+}
+
+function renderAlertsDrawer() {
+  const list = document.getElementById('alerts-list');
+  const countEl = document.getElementById('drawer-count');
+  const footerEl = document.getElementById('drawer-footer-info');
+
+  const filtered = alertFilter === 'all'
+    ? alertsHistory
+    : alertsHistory.filter(a => a.sev === alertFilter);
+
+  countEl.textContent = `${alertsHistory.length} alert${alertsHistory.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="alerts-empty">
+      <div class="alerts-empty-icon">🔔</div>
+      <span>${alertsHistory.length === 0 ? 'No alerts yet' : 'No ' + alertFilter + ' alerts'}</span>
+      <span style="color:var(--dim);font-size:10px">${alertsHistory.length === 0 ? 'Alerts appear here when anomalies are detected' : 'Try switching the filter above'}</span>
+    </div>`;
+    footerEl.textContent = '—';
+    return;
+  }
+
+  const sevColors = { critical: 'var(--accent2)', warn: 'var(--warn)', info: 'var(--accent)' };
+  const sevLabels = { critical: 'CRITICAL', warn: 'WARN', info: 'INFO' };
+
+  list.innerHTML = filtered.map(a => {
+    const ts = a.timestamp;
+    const timeStr = ts.toLocaleTimeString();
+    const dateStr = ts.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `
+    <div class="alert-item" data-id="${a.id}">
+      <div class="alert-sev-bar ${a.sev}"></div>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-detail">${a.detail}</div>
+        <div class="alert-meta">
+          <span class="alert-sensor-tag">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            ${a.sensor}
+          </span>
+          <span class="alert-time-tag">${dateStr} · ${timeStr}</span>
+          <span class="alert-zscore">z=${a.zscore}</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;font-family:var(--font-mono);font-size:9px;font-weight:700;
+                  padding:2px 6px;border-radius:3px;
+                  background:${sevColors[a.sev]}1a;color:${sevColors[a.sev]}">
+        ${sevLabels[a.sev]}
+      </div>
+    </div>`;
+  }).join('');
+
+  const oldest = filtered[filtered.length - 1];
+  footerEl.textContent = `Oldest: ${oldest.timestamp.toLocaleString()}`;
 }
 
 // ─── GRAFANA ───
@@ -1411,35 +1433,49 @@ function loadGrafana() {
   const link    = document.getElementById('grafana-open-link');
   const direct  = document.getElementById('grafana-direct-link');
 
+  // Reset previous state
   banner.style.display = 'none';
   if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
 
+  // Show a loading state in the overlay while the iframe starts
   overlay.style.display = 'flex';
   overlay.innerHTML = `
     <div class="grafana-overlay-icon" style="animation:blink 1s infinite">📊</div>
     <p>Loading dashboard…</p>
     <small>${url.replace(/https?:\/\//, '').substring(0, 60)}</small>`;
 
+  // Set the iframe src
   frame.src = url;
   frame.style.display = 'block';
   link.href  = url;
   direct.href = url;
 
+  // onload fires even when X-Frame-Options blocks — the frame loads a blank page.
+  // We can't read cross-origin content, so we use a short timeout:
+  // if the frame's contentDocument is still empty/about:blank after load, it was blocked.
   frame.onload = function () {
     if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
     try {
+      // Same-origin only: if we can read the doc, check it has real content
       const doc = frame.contentDocument || frame.contentWindow.document;
       if (!doc || doc.URL === 'about:blank' || !doc.body || doc.body.innerHTML.trim() === '') {
+        // Blank page = blocked for sure
         showGrafanaBlocked();
       } else {
+        // Same-origin and has content — loaded fine
         overlay.style.display = 'none';
         toast('Grafana dashboard loaded', 'success');
       }
     } catch (e) {
+      // SecurityError = cross-origin frame fired onload.
+      // This happens BOTH when Grafana loads correctly AND when the browser
+      // replaces it with its own "blocked" error page (also cross-origin).
+      // We cannot tell them apart — so treat it as blocked and show the fallback.
       showGrafanaBlocked();
     }
   };
 
+  // If onload never fires within 6 s, assume network/block issue
   grafanaBlockTimer = setTimeout(() => {
     if (overlay.style.display !== 'none') showGrafanaBlocked();
   }, 6000);
@@ -1471,7 +1507,7 @@ function showGrafanaBlocked() {
       Open Dashboard ↗
     </a>`;
 
-  banner.style.display = 'none';
+  banner.style.display = 'none'; // hide the bottom banner — the overlay button is enough
 }
 
 function refreshGrafana() {
@@ -1507,33 +1543,16 @@ async function connectSource() {
   spinner.style.display = 'block';
   btnText.textContent = 'Connecting…';
   statusBox.style.display = 'flex';
-  statusText.textContent = 'Reaching backend…';
+  statusText.textContent = 'Adding source…';
 
-  try {
-    const probe = await fetch(`${url}/start-producer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: 'probe-' + Date.now(), value: 0 })
-    });
-    if (!probe.ok && probe.status !== 422) throw new Error(`Server returned ${probe.status}`);
-  } catch (err) {
-    statusBox.style.background = 'rgba(255,59,107,0.06)';
-    statusBox.style.borderColor = 'rgba(255,59,107,0.25)';
-    statusBox.style.color = 'var(--accent2)';
-    document.getElementById('connect-status-dot').style.background = 'var(--accent2)';
-    statusText.textContent = `Could not reach backend — check your URL`;
-    resetConnectBtn();
-    return;
-  }
-
-  statusText.textContent = 'Connected! Starting stream…';
-  await new Promise(r => setTimeout(r, 600));
+  // Small delay for UX feedback, then add source immediately
+  await new Promise(r => setTimeout(r, 400));
 
   const src = {
     id: Date.now().toString(36),
     name: name || url.replace('https://', '').split('.')[0],
     url,
-    endpoint: `${url}/`,
+    endpoint: url,
     interval: 800,
     bg: 'rgba(0,212,255,0.08)',
     icon: '🟢',
@@ -1541,10 +1560,12 @@ async function connectSource() {
   };
 
   sources.push(src);
-  // Update stat card immediately so it never shows 0
+
+  // Update stat card immediately and reliably
   document.getElementById('stat-sources').textContent = sources.length;
   document.getElementById('stat-sources-sub').textContent =
     `${sources.length} active stream${sources.length !== 1 ? 's' : ''}`;
+
   renderSources();
   startSourcePolling(src);
 
