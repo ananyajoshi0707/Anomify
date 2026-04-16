@@ -881,6 +881,7 @@
     <div class="page-header">
       <div>
         <div class="page-title">Anomaly Detection Dashboard</div>
+
       </div>
       <div class="anomaly-pulse" id="top-anomaly-badge" style="display:none">
         <span>●</span> <span id="top-anomaly-text">Anomaly Detected</span>
@@ -1085,7 +1086,7 @@
 const sources = [];
 let anomalyCount = 0;
 const sourceTimers = {};
-const alertsHistory = [];
+const alertsHistory = [];   // { sev, title, detail, sensor, timestamp, zscore, value }
 let alertFilter = 'all';
 let unreadAlerts = 0;
 
@@ -1194,7 +1195,7 @@ function createAlertObject(val, zscore) {
     title: msg[0],
     detail: msg[1],
     sensor: sensorName,
-    timestamp: new Date(),
+    timestamp: new Date(),   // ✅ guaranteed timestamp
     zscore,
     value: val
   };
@@ -1212,8 +1213,22 @@ function handleAnomaly(val) {
   setTimeout(() => { badge.style.display = 'none'; }, 4000);
   addLogEntry(val);
 
-  const alertObj = createAlertObject(val, zscore);
-  alertsHistory.unshift(alertObj);
+  // Build alert and push to history
+  const alertMsgs = [
+    [`Spike detected`,     `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
+    [`Point anomaly`,      `Z-score ${zscore} — deviation from rolling mean`],
+    [`Contextual anomaly`, `Pattern break in time window (30s)`],
+    [`Collective anomaly`, `Cluster of outliers in stream buffer`],
+    [`Sudden drop`,        `Value ${val.toFixed(2)} below lower bound`],
+  ];
+  const sev        = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
+  const msg        = alertMsgs[Math.floor(Math.random() * alertMsgs.length)];
+  const sensorName = sources.length > 0
+    ? sources[Math.floor(Math.random() * sources.length)].name
+    : 'unknown';
+
+const alertObj = createAlertObject(val, zscore);
+alertsHistory.unshift(alertObj);
   if (alertsHistory.length > 200) alertsHistory.pop();
 
   // Increment unread badge on Alerts button
@@ -1221,9 +1236,12 @@ function handleAnomaly(val) {
   const ab = document.getElementById('alert-badge');
   ab.textContent = unreadAlerts > 99 ? '99+' : unreadAlerts;
   ab.classList.add('visible');
-
-  // Always update alerts drawer
-  renderAlertsDrawer();
+  // Always update alerts UI instantly
+renderAlertsDrawer();
+  // Live-refresh drawer if open
+  if (document.getElementById('alerts-drawer').classList.contains('open')) {
+    renderAlertsDrawer();
+  }
 
   if (sources.length > 0) {
     const src = sources[Math.floor(Math.random() * sources.length)];
@@ -1254,9 +1272,10 @@ function addLogEntry(val) {
   const msg = messages[Math.floor(Math.random() * messages.length)];
   const src = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
   const log = document.getElementById('anomaly-log');
-  if (log.children.length === 1 && log.textContent.includes('No anomalies')) {
-    log.innerHTML = '';
-  }
+  // Clear placeholder if first real log comes
+if (log.children.length === 1 && log.textContent.includes('No anomalies')) {
+  log.innerHTML = '';
+}
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.innerHTML = `
@@ -1272,6 +1291,11 @@ function addLogEntry(val) {
 function clearLog() {
   document.getElementById('anomaly-log').innerHTML =
     '<div style="text-align:center;padding:20px 0;color:var(--dim);font-family:var(--font-mono);font-size:10px">No anomalies detected yet.</div>';
+}
+
+function updateLastUpdate() {
+  document.getElementById('last-update').textContent =
+    `LAST UPDATE: ${new Date().toLocaleTimeString()}`;
 }
 
 function updateStats() {
@@ -1325,27 +1349,20 @@ function removeSource(id) {
   toast('Source removed', 'info');
 }
 
-// ─── FIX: sendToBackend — removed broken updateLastUpdate() call,
-//     aligned 422 handling with the probe in connectSource()
 async function sendToBackend(src) {
   const noise = (Math.random() - 0.5) * 8;
   const spike = Math.random() < 0.04;
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
-  
   try {
     const res = await fetch(`${src.url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: src.id, value, timestamp: Date.now() })
     });
-    
-    // Allow 422 (Unprocessable Entity) - same as the probe step in connectSource()
-    if (!res.ok && res.status !== 422) throw new Error(`HTTP ${res.status}`);
-
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    updateLastUpdate();
     if (spike) handleAnomaly(value);
     updateStats();
-
-    // Clear any previous error state and restore normal status
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl && statusEl.dataset.error) {
       statusEl.className = 'source-status running';
@@ -1356,30 +1373,19 @@ async function sendToBackend(src) {
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl) {
       statusEl.className = 'source-status anomaly';
-      statusEl.innerHTML = `<span class="source-status-dot"></span> DISCONNECTED`;
+      statusEl.innerHTML = `<span class="source-status-dot"></span> ERROR`;
       statusEl.dataset.error = '1';
-    }
-    
-    // 🔥 CRITICAL FIX: Stop polling when disconnected
-    console.log(`Source ${src.name} disconnected, stopping data generation`);
-    stopSourcePolling(src.id);
-    
-    // Show user feedback
-    toast(`⚠️ ${src.name} disconnected - data generation stopped`, 'error');
-    
-    // Optionally mark source as disconnected in the UI
-    const sourceCard = document.getElementById(`source-${src.id}`);
-    if (sourceCard) {
-      sourceCard.style.opacity = '0.6';
-      sourceCard.style.borderColor = 'var(--accent2)';
     }
   }
 }
 
 function startSourcePolling(src) {
-  src.disconnected = false; // Add this flag
   sendToBackend(src);
   sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
+}
+
+function stopSourcePolling(id) {
+  if (sourceTimers[id]) { clearInterval(sourceTimers[id]); delete sourceTimers[id]; }
 }
 
 // ─── GRAFANA ───
@@ -1525,6 +1531,7 @@ async function connectSource() {
   };
 
   sources.push(src);
+  // Update stat card immediately so it never shows 0
   document.getElementById('stat-sources').textContent = sources.length;
   document.getElementById('stat-sources-sub').textContent =
     `${sources.length} active stream${sources.length !== 1 ? 's' : ''}`;
