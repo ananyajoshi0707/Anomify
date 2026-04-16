@@ -1331,22 +1331,21 @@ async function sendToBackend(src) {
   const noise = (Math.random() - 0.5) * 8;
   const spike = Math.random() < 0.04;
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
+  
   try {
     const res = await fetch(`${src.url}/start-producer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: src.id, value, timestamp: Date.now() })
     });
-    // Allow 422 (Unprocessable Entity) — same as the probe step in connectSource()
+    
+    // Allow 422 (Unprocessable Entity) - same as the probe step in connectSource()
     if (!res.ok && res.status !== 422) throw new Error(`HTTP ${res.status}`);
 
-    // ─── BUG FIX: removed updateLastUpdate() — element #last-update does not
-    //     exist in the DOM. Calling it threw a TypeError that was silently
-    //     caught below, setting every source card to ERROR on every poll tick.
     if (spike) handleAnomaly(value);
     updateStats();
 
-    // Clear any previous error state on the status badge
+    // Clear any previous error state and restore normal status
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl && statusEl.dataset.error) {
       statusEl.className = 'source-status running';
@@ -1357,19 +1356,30 @@ async function sendToBackend(src) {
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl) {
       statusEl.className = 'source-status anomaly';
-      statusEl.innerHTML = `<span class="source-status-dot"></span> ERROR`;
+      statusEl.innerHTML = `<span class="source-status-dot"></span> DISCONNECTED`;
       statusEl.dataset.error = '1';
+    }
+    
+    // 🔥 CRITICAL FIX: Stop polling when disconnected
+    console.log(`Source ${src.name} disconnected, stopping data generation`);
+    stopSourcePolling(src.id);
+    
+    // Show user feedback
+    toast(`⚠️ ${src.name} disconnected - data generation stopped`, 'error');
+    
+    // Optionally mark source as disconnected in the UI
+    const sourceCard = document.getElementById(`source-${src.id}`);
+    if (sourceCard) {
+      sourceCard.style.opacity = '0.6';
+      sourceCard.style.borderColor = 'var(--accent2)';
     }
   }
 }
 
 function startSourcePolling(src) {
+  src.disconnected = false; // Add this flag
   sendToBackend(src);
   sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
-}
-
-function stopSourcePolling(id) {
-  if (sourceTimers[id]) { clearInterval(sourceTimers[id]); delete sourceTimers[id]; }
 }
 
 // ─── GRAFANA ───
