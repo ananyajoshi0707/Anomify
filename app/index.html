@@ -60,17 +60,6 @@
     to { transform: translate(300px, 200px); }
   }
 
-  .shell {
-    position: relative; z-index: 1;
-    min-height: 100vh;
-    display: grid;
-    grid-template-rows: 56px 1fr;
-    grid-template-columns: 240px 1fr;
-    grid-template-areas:
-      "nav   topbar"
-      "nav   main";
-  }
-
   .topbar {
     grid-area: topbar;
     display: flex; align-items: center; justify-content: space-between;
@@ -146,13 +135,7 @@
 
   .btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  .nav {
-    grid-area: nav;
-    display: flex; flex-direction: column;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    padding: 0;
-  }
+  .nav { display: none; }
 
   .nav-logo {
     display: flex; align-items: center; gap: 10px;
@@ -436,6 +419,200 @@
   .grafana-blocked-banner a:hover { background: rgba(0,212,255,0.08); }
   .grafana-blocked-banner span { flex: 1; }
 
+  /* ─── ALERTS BUTTON BADGE ─── */
+  .alert-btn-wrap { position: relative; }
+  .alert-badge {
+    display: none;
+    position: absolute;
+    top: -5px; right: -5px;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--accent2);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    align-items: center; justify-content: center;
+    line-height: 1;
+    animation: badgePop .25s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+  }
+  @keyframes badgePop {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+  }
+  .alert-badge.visible { display: flex; }
+
+  /* ─── ALERTS DRAWER ─── */
+  .alerts-drawer {
+    position: fixed;
+    top: 0; right: 0;
+    width: 400px; height: 100vh;
+    background: var(--surface);
+    border-left: 1px solid var(--border-glow);
+    z-index: 150;
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    box-shadow: -20px 0 60px rgba(0,0,0,0.5);
+  }
+  .alerts-drawer.open { transform: translateX(0); }
+
+  .alerts-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .alerts-drawer-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 800;
+  }
+  .alerts-drawer-count {
+    background: rgba(255,59,107,0.15);
+    color: var(--accent2);
+    border: 1px solid rgba(255,59,107,0.3);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .alerts-drawer-close {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: all .15s;
+  }
+  .alerts-drawer-close:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .alerts-drawer-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .alerts-filter-group { display: flex; gap: 6px; }
+  .filter-pill {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-pill.active { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); }
+  .filter-pill.red.active { background: rgba(255,59,107,0.08); border-color: var(--accent2); color: var(--accent2); }
+  .filter-pill.yellow.active { background: rgba(245,158,11,0.08); border-color: var(--warn); color: var(--warn); }
+
+  .alerts-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .alerts-list::-webkit-scrollbar { width: 4px; }
+  .alerts-list::-webkit-scrollbar-track { background: transparent; }
+  .alerts-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .alert-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(30,45,74,0.5);
+    transition: background .15s;
+    animation: alertSlideIn .3s ease;
+  }
+  @keyframes alertSlideIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .alert-item:hover { background: var(--surface2); }
+  .alert-item:last-child { border-bottom: none; }
+
+  .alert-sev-bar {
+    width: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: 40px;
+  }
+  .alert-sev-bar.critical { background: var(--accent2); }
+  .alert-sev-bar.warn     { background: var(--warn); }
+  .alert-sev-bar.info     { background: var(--accent); }
+
+  .alert-body { flex: 1; min-width: 0; }
+  .alert-title {
+    font-size: 12px; font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+  .alert-detail {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .alert-meta {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .alert-sensor-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.15);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .alert-time-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--dim);
+  }
+  .alert-zscore {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .alerts-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%;
+    gap: 10px;
+    color: var(--dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .alerts-empty-icon { font-size: 32px; opacity: 0.4; }
+
+  .alerts-drawer-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end;
+    flex-shrink: 0;
+  }
+
+  .alerts-scrim {
+    position: fixed; inset: 0;
+    background: rgba(5,8,16,0.5);
+    z-index: 149;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+  }
+  .alerts-scrim.open { opacity: 1; pointer-events: all; }
+
   /* ─── DATA SOURCES ─── */
   .sources-list { display: flex; flex-direction: column; gap: 10px; }
 
@@ -653,19 +830,11 @@
   .main::-webkit-scrollbar { width: 6px; }
   .main::-webkit-scrollbar-track { background: transparent; }
   .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  @media (max-width: 900px) {
-    .shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
-    .nav { display: none; }
-    .stats-row { grid-template-columns: 1fr 1fr; }
-    .two-col { grid-template-columns: 1fr; }
-  }
 </style>
 </head>
 <body>
 
-<div class="shell">
-  <!-- NAV -->
+  <!-- NAV (hidden, kept for compatibility) -->
   <nav class="nav">
     <div class="nav-logo">
       <div class="logo-icon">
@@ -676,43 +845,6 @@
         </svg>
       </div>
       <span class="logo-text">ano<span>mify</span></span>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-label">Monitor</div>
-      <div class="nav-item active" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-        Overview
-      </div>
-      <div class="nav-item" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Live Stream
-        <span class="nav-badge" id="anomaly-count">0</span>
-      </div>
-      <div class="nav-item" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-        Analytics
-      </div>
-    </div>
-
-    <div class="nav-section">
-      <div class="nav-label">Config</div>
-      <div class="nav-item" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        Data Sources
-      </div>
-      <div class="nav-item" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Grafana
-      </div>
-      <div class="nav-item" onclick="setNav(this)">
-        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Alert Rules
-      </div>
-    </div>
-
-    <div class="nav-footer">
-      <div class="version-tag">ANOMIFY v1.0.0 · BETA</div>
     </div>
   </nav>
 
@@ -729,10 +861,13 @@
       </div>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-ghost btn-sm">
-        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Alerts
-      </button>
+      <div class="alert-btn-wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openAlertsDrawer()">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Alerts
+        </button>
+        <span class="alert-badge" id="alert-badge">0</span>
+      </div>
       <button class="btn btn-primary" onclick="openModal()">
         <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Data Source
@@ -804,7 +939,6 @@
               <p>Enter your Grafana dashboard URL above</p>
               <small>Supports Grafana Cloud · Self-hosted · Kiosk mode</small>
             </div>
-            <!-- sandbox allows scripts/forms/same-origin needed for Grafana -->
             <iframe
               id="grafana-frame"
               src=""
@@ -813,7 +947,6 @@
               referrerpolicy="no-referrer-when-downgrade"
             ></iframe>
           </div>
-          <!-- shown when browser blocks the embed -->
           <div class="grafana-blocked-banner" id="grafana-blocked-banner">
             <span>⚠ Dashboard blocked by Grafana's embed policy — open it directly instead.</span>
             <a id="grafana-direct-link" href="#" target="_blank">Open in new tab ↗</a>
@@ -859,9 +992,47 @@
           </div>
         </div>
       </div>
+      <div class="nav-footer">
+        <div class="version-tag">ANOMIFY v1.0.0 · BETA</div>
+      </div>
     </div>
 
   </main>
+
+<!-- ALERTS SCRIM -->
+<div class="alerts-scrim" id="alerts-scrim" onclick="closeAlertsDrawer()"></div>
+
+<!-- ALERTS DRAWER -->
+<div class="alerts-drawer" id="alerts-drawer">
+  <div class="alerts-drawer-header">
+    <div class="alerts-drawer-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      Alert History
+      <span class="alerts-drawer-count" id="drawer-count">0 alerts</span>
+    </div>
+    <button class="alerts-drawer-close" onclick="closeAlertsDrawer()">✕</button>
+  </div>
+  <div class="alerts-drawer-toolbar">
+    <div class="alerts-filter-group">
+      <button class="filter-pill active" data-filter="all" onclick="setAlertFilter(this)">All</button>
+      <button class="filter-pill red" data-filter="critical" onclick="setAlertFilter(this)">Critical</button>
+      <button class="filter-pill yellow" data-filter="warn" onclick="setAlertFilter(this)">Warning</button>
+      <button class="filter-pill" data-filter="info" onclick="setAlertFilter(this)">Info</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="clearAlerts()" style="font-size:10px;padding:3px 10px">Clear All</button>
+  </div>
+  <div class="alerts-list" id="alerts-list">
+    <div class="alerts-empty" id="alerts-empty">
+      <div class="alerts-empty-icon">🔔</div>
+      <span>No alerts yet</span>
+      <span style="color:var(--dim);font-size:10px">Alerts appear here when anomalies are detected</span>
+    </div>
+  </div>
+  <div class="alerts-drawer-footer">
+    <span style="font-family:var(--font-mono);font-size:10px;color:var(--dim)" id="drawer-footer-info">—</span>
+  </div>
 </div>
 
 <!-- ADD DATA SOURCE MODAL -->
@@ -915,16 +1086,163 @@
 const sources = [];
 let anomalyCount = 0;
 const sourceTimers = {};
+const alertsHistory = [];   // { sev, title, detail, sensor, timestamp, zscore, value }
+let alertFilter = 'all';
+let unreadAlerts = 0;
 
+// ─── ALERTS DRAWER ───
+function openAlertsDrawer() {
+  document.getElementById('alerts-drawer').classList.add('open');
+  document.getElementById('alerts-scrim').classList.add('open');
+  unreadAlerts = 0;
+  const ab = document.getElementById('alert-badge');
+  ab.textContent = '0';
+  ab.classList.remove('visible');
+  renderAlertsDrawer();
+}
+
+function closeAlertsDrawer() {
+  document.getElementById('alerts-drawer').classList.remove('open');
+  document.getElementById('alerts-scrim').classList.remove('open');
+}
+
+function setAlertFilter(el) {
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  alertFilter = el.dataset.filter;
+  renderAlertsDrawer();
+}
+
+function clearAlerts() {
+  alertsHistory.length = 0;
+  unreadAlerts = 0;
+  document.getElementById('alert-badge').classList.remove('visible');
+  renderAlertsDrawer();
+}
+
+function renderAlertsDrawer() {
+  const list     = document.getElementById('alerts-list');
+  const countEl  = document.getElementById('drawer-count');
+  const footerEl = document.getElementById('drawer-footer-info');
+
+  const filtered = alertFilter === 'all'
+    ? alertsHistory
+    : alertsHistory.filter(a => a.sev === alertFilter);
+
+  countEl.textContent = `${alertsHistory.length} alert${alertsHistory.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="alerts-empty">
+      <div class="alerts-empty-icon">🔔</div>
+      <span>${alertsHistory.length === 0 ? 'No alerts yet' : 'No ' + alertFilter + ' alerts'}</span>
+      <span style="color:var(--dim);font-size:10px">${alertsHistory.length === 0 ? 'Alerts appear here when anomalies are detected' : 'Try switching the filter above'}</span>
+    </div>`;
+    footerEl.textContent = '—';
+    return;
+  }
+
+  const sevColor = { critical: 'var(--accent2)', warn: 'var(--warn)', info: 'var(--accent)' };
+  const sevLabel = { critical: 'CRITICAL', warn: 'WARN', info: 'INFO' };
+
+  list.innerHTML = filtered.map(a => {
+    const dateStr = a.timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = a.timestamp.toLocaleTimeString();
+    return `
+    <div class="alert-item">
+      <div class="alert-sev-bar ${a.sev}"></div>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-detail">${a.detail}</div>
+        <div class="alert-meta">
+          <span class="alert-sensor-tag">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            ${a.sensor}
+          </span>
+          <span class="alert-time-tag">${dateStr} · ${timeStr}</span>
+          <span class="alert-zscore">z=${a.zscore}</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;font-family:var(--font-mono);font-size:9px;font-weight:700;
+                  padding:2px 6px;border-radius:3px;
+                  background:${sevColor[a.sev]}1a;color:${sevColor[a.sev]}">
+        ${sevLabel[a.sev]}
+      </div>
+    </div>`;
+  }).join('');
+
+  const oldest = filtered[filtered.length - 1];
+  footerEl.textContent = `Oldest: ${oldest.timestamp.toLocaleString()}`;
+}
+
+function createAlertObject(val, zscore) {
+  const alertMsgs = [
+    [`Spike detected`, `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
+    [`Point anomaly`, `Z-score ${zscore} — deviation from rolling mean`],
+    [`Contextual anomaly`, `Pattern break in time window (30s)`],
+    [`Collective anomaly`, `Cluster of outliers in stream buffer`],
+    [`Sudden drop`, `Value ${val.toFixed(2)} below lower bound`],
+  ];
+
+  const sev = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
+  const msg = alertMsgs[Math.floor(Math.random() * alertMsgs.length)];
+
+  const sensorName = sources.length > 0
+    ? sources[Math.floor(Math.random() * sources.length)].name
+    : 'unknown';
+
+  return {
+    sev,
+    title: msg[0],
+    detail: msg[1],
+    sensor: sensorName,
+    timestamp: new Date(),   // ✅ guaranteed timestamp
+    zscore,
+    value: val
+  };
+}
+
+// ─── ANOMALY HANDLER ───
 function handleAnomaly(val) {
   anomalyCount++;
-  document.getElementById('anomaly-count').textContent = anomalyCount;
+  document.getElementById('stat-anomalies').textContent = anomalyCount;
   const badge = document.getElementById('top-anomaly-badge');
   badge.style.display = 'inline-flex';
+  const zscore = (2.5 + Math.random() * 2).toFixed(2);
   document.getElementById('top-anomaly-text').textContent =
-    `Anomaly #${anomalyCount} — z-score ${(2.5 + Math.random() * 2).toFixed(2)}`;
+    `Anomaly #${anomalyCount} — z-score ${zscore}`;
   setTimeout(() => { badge.style.display = 'none'; }, 4000);
   addLogEntry(val);
+
+  // Build alert and push to history
+  const alertMsgs = [
+    [`Spike detected`,     `Value ${val.toFixed(2)} exceeds threshold by ${(Math.random()*40+10).toFixed(1)}%`],
+    [`Point anomaly`,      `Z-score ${zscore} — deviation from rolling mean`],
+    [`Contextual anomaly`, `Pattern break in time window (30s)`],
+    [`Collective anomaly`, `Cluster of outliers in stream buffer`],
+    [`Sudden drop`,        `Value ${val.toFixed(2)} below lower bound`],
+  ];
+  const sev        = val > 90 ? 'critical' : val < 15 ? 'warn' : 'info';
+  const msg        = alertMsgs[Math.floor(Math.random() * alertMsgs.length)];
+  const sensorName = sources.length > 0
+    ? sources[Math.floor(Math.random() * sources.length)].name
+    : 'unknown';
+
+const alertObj = createAlertObject(val, zscore);
+alertsHistory.unshift(alertObj);
+  if (alertsHistory.length > 200) alertsHistory.pop();
+
+  // Increment unread badge on Alerts button
+  unreadAlerts++;
+  const ab = document.getElementById('alert-badge');
+  ab.textContent = unreadAlerts > 99 ? '99+' : unreadAlerts;
+  ab.classList.add('visible');
+  // Always update alerts UI instantly
+renderAlertsDrawer();
+  // Live-refresh drawer if open
+  if (document.getElementById('alerts-drawer').classList.contains('open')) {
+    renderAlertsDrawer();
+  }
+
   if (sources.length > 0) {
     const src = sources[Math.floor(Math.random() * sources.length)];
     src.anomalies = (src.anomalies || 0) + 1;
@@ -954,8 +1272,10 @@ function addLogEntry(val) {
   const msg = messages[Math.floor(Math.random() * messages.length)];
   const src = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)].name : 'unknown';
   const log = document.getElementById('anomaly-log');
-  const empty = log.querySelector('div');
-  if (empty && empty.style.paddingTop !== undefined && !empty.classList.contains('log-entry')) log.innerHTML = '';
+  // Clear placeholder if first real log comes
+if (log.children.length === 1 && log.textContent.includes('No anomalies')) {
+  log.innerHTML = '';
+}
   const entry = document.createElement('div');
   entry.className = 'log-entry';
   entry.innerHTML = `
@@ -1081,49 +1401,35 @@ function loadGrafana() {
   const link    = document.getElementById('grafana-open-link');
   const direct  = document.getElementById('grafana-direct-link');
 
-  // Reset previous state
   banner.style.display = 'none';
   if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
 
-  // Show a loading state in the overlay while the iframe starts
   overlay.style.display = 'flex';
   overlay.innerHTML = `
     <div class="grafana-overlay-icon" style="animation:blink 1s infinite">📊</div>
     <p>Loading dashboard…</p>
     <small>${url.replace(/https?:\/\//, '').substring(0, 60)}</small>`;
 
-  // Set the iframe src
   frame.src = url;
   frame.style.display = 'block';
   link.href  = url;
   direct.href = url;
 
-  // onload fires even when X-Frame-Options blocks — the frame loads a blank page.
-  // We can't read cross-origin content, so we use a short timeout:
-  // if the frame's contentDocument is still empty/about:blank after load, it was blocked.
   frame.onload = function () {
     if (grafanaBlockTimer) { clearTimeout(grafanaBlockTimer); grafanaBlockTimer = null; }
     try {
-      // Same-origin only: if we can read the doc, check it has real content
       const doc = frame.contentDocument || frame.contentWindow.document;
       if (!doc || doc.URL === 'about:blank' || !doc.body || doc.body.innerHTML.trim() === '') {
-        // Blank page = blocked for sure
         showGrafanaBlocked();
       } else {
-        // Same-origin and has content — loaded fine
         overlay.style.display = 'none';
         toast('Grafana dashboard loaded', 'success');
       }
     } catch (e) {
-      // SecurityError = cross-origin frame fired onload.
-      // This happens BOTH when Grafana loads correctly AND when the browser
-      // replaces it with its own "blocked" error page (also cross-origin).
-      // We cannot tell them apart — so treat it as blocked and show the fallback.
       showGrafanaBlocked();
     }
   };
 
-  // If onload never fires within 6 s, assume network/block issue
   grafanaBlockTimer = setTimeout(() => {
     if (overlay.style.display !== 'none') showGrafanaBlocked();
   }, 6000);
@@ -1155,7 +1461,7 @@ function showGrafanaBlocked() {
       Open Dashboard ↗
     </a>`;
 
-  banner.style.display = 'none'; // hide the bottom banner — the overlay button is enough
+  banner.style.display = 'none';
 }
 
 function refreshGrafana() {
@@ -1225,6 +1531,10 @@ async function connectSource() {
   };
 
   sources.push(src);
+  // Update stat card immediately so it never shows 0
+  document.getElementById('stat-sources').textContent = sources.length;
+  document.getElementById('stat-sources-sub').textContent =
+    `${sources.length} active stream${sources.length !== 1 ? 's' : ''}`;
   renderSources();
   startSourcePolling(src);
 
