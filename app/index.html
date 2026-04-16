@@ -1350,6 +1350,13 @@ function removeSource(id) {
 }
 
 async function sendToBackend(src) {
+  // 🔥 CRITICAL FIX: Check if source still exists before sending
+  if (!sources.find(s => s.id === src.id)) {
+    // Source was deleted, stop further polling
+    stopSourcePolling(src.id);
+    return;
+  }
+  
   const noise = (Math.random() - 0.5) * 8;
   const spike = Math.random() < 0.04;
   const value = parseFloat((50 + noise + (spike ? (Math.random() > 0.5 ? 30 : -30) : 0)).toFixed(4));
@@ -1370,6 +1377,10 @@ async function sendToBackend(src) {
       delete statusEl.dataset.error;
     }
   } catch (err) {
+    // Check again if source still exists before showing error
+    if (!sources.find(s => s.id === src.id)) {
+      return; // Source was deleted, ignore the error
+    }
     const statusEl = document.getElementById(`src-status-${src.id}`);
     if (statusEl) {
       statusEl.className = 'source-status anomaly';
@@ -1378,7 +1389,6 @@ async function sendToBackend(src) {
     }
   }
 }
-
 function startSourcePolling(src) {
   sendToBackend(src);
   sourceTimers[src.id] = setInterval(() => sendToBackend(src), src.interval);
